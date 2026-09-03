@@ -243,6 +243,7 @@ emissions math, prediction, optimization, benchmarking, and report generation.
 
 ## 👥 Team & Credits
 
+Built for **Mohd — Altamish** 
 Built for **Smart India Hackathon — Problem #26138** (Egreen Quanta).
 
 Key references: Han & Kim (2002) *QIEA* · Sun et al. (2004) *QPSO* ·
