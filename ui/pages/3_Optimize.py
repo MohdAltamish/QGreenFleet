@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 import time
 import numpy as np
@@ -25,8 +26,12 @@ ensure_session_state()
 st.title("⚛️ Fleet Deployment & Speed Optimization")
 st.markdown("Coupled Quantum-Inspired Evolutionary Algorithm (QIEA) with Quantum-behaved Particle Swarm Optimization (QPSO).")
 
-# Top banner for Hugging Face / Demo execution
-st.info("⚡ Demo mode: pre-computed results load instantly. Live optimization available but takes ~20 min on hosted CPU.")
+# Hosted demo mode banner
+is_hosted = bool(os.environ.get("RENDER")) or bool(os.environ.get("SPACE_ID"))
+if is_hosted:
+    st.info("⚡ Demo mode active: pre-computed results load instantly. Live optimization runs ~20 min on hosted CPU.")
+else:
+    st.info("⚡ Demo mode active: pre-computed results load instantly. Live optimization runs ~20 min on hosted CPU.")
 
 if not st.session_state.fleet:
     st.warning("⚠️ No active fleet loaded. Please visit **1_Data** to upload or synthesize a fleet first.")
@@ -55,7 +60,15 @@ if not avail_scenarios and (_PROJECT_ROOT / "outputs" / "pareto.csv").exists():
     avail_scenarios.append("default (outputs/pareto.csv)")
 
 def _load_scenario(chosen: str):
-    if chosen == "default (outputs/pareto.csv)":
+    if st.session_state.get("preloaded_scenarios") and chosen in st.session_state.preloaded_scenarios:
+        scen_data = st.session_state.preloaded_scenarios[chosen]
+        st.session_state.last_pareto = scen_data["pareto"]
+        st.session_state.selected_solution = scen_data["knee"]
+        if scen_data["bau"]:
+            st.session_state.bau_baseline = scen_data["bau"]
+        if scen_data["history"]:
+            st.session_state.last_history = scen_data["history"]
+    elif chosen == "default (outputs/pareto.csv)":
         df_prev = pd.read_csv(_PROJECT_ROOT / "outputs" / "pareto.csv")
         st.session_state.last_pareto = df_prev.to_dict(orient="records")
         knee_s, _ = _find_knee_solution(st.session_state.last_pareto)
@@ -77,20 +90,21 @@ def _load_scenario(chosen: str):
         if (s_dir / "history.json").exists():
             st.session_state.last_history = json.loads((s_dir / "history.json").read_text(encoding="utf-8"))
 
-    st.session_state.last_run_time = "Pre-computed"
+    st.session_state.last_run_time = f"Pre-computed ({chosen})"
 
 # Auto-load baseline if nothing loaded yet
 if st.session_state.last_pareto is None and avail_scenarios:
-    _load_scenario(avail_scenarios[0])
+    _load_scenario("baseline" if "baseline" in avail_scenarios else avail_scenarios[0])
 
 if avail_scenarios:
     st.subheader("📂 Load Previous Results (Instant)")
     c_scen_sel, c_scen_btn = st.columns([3, 1])
     with c_scen_sel:
+        def_idx = avail_scenarios.index("baseline") if "baseline" in avail_scenarios else 0
         chosen_scen = st.selectbox(
             "Select Scenario:",
             options=avail_scenarios,
-            index=0,
+            index=def_idx,
             help="Choose from pre-computed policy scenarios"
         )
     with c_scen_btn:
@@ -101,6 +115,7 @@ if avail_scenarios:
         _load_scenario(chosen_scen)
         st.success(f"Loaded '{chosen_scen}'! Pareto front, baseline, and knee solution are ready.")
         st.rerun()
+
 
 # ===================================================================== #
 #  Live Optimization Configuration (Optional live run)                  #

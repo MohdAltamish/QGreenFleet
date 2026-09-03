@@ -89,16 +89,8 @@ with st.sidebar:
     )
 
     # Deployment status badge
-    if os.environ.get("SPACE_ID"):
-        st.markdown(
-            """
-            <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
-                🌐 Live on Hugging Face
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    elif os.environ.get("RENDER"):
+    is_hosted = bool(os.environ.get("RENDER"))
+    if is_hosted:
         st.markdown(
             """
             <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
@@ -107,16 +99,24 @@ with st.sidebar:
             """,
             unsafe_allow_html=True,
         )
-    else:
+    elif os.environ.get("SPACE_ID"):
         st.markdown(
             """
-            <div style="background-color: #1e293b; color: #94a3b8; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #334155;">
-                💻 Running locally
+            <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
+                🌐 Live on Hugging Face
             </div>
             """,
             unsafe_allow_html=True,
         )
-
+    else:
+        st.markdown(
+            """
+            <div style="background-color: #1e293b; color: #94a3b8; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #334155;">
+                💻 Local
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown("### System Status")
     # Fleet indicator
@@ -146,13 +146,21 @@ with st.sidebar:
     st.markdown("1. **Data** — Ingest or generate fleet\n2. **Predict** — Test fuel surrogate\n3. **Optimize** — QIEA+QPSO run\n4. **Scenarios** — Policy & price sweeps\n5. **Report** — Dual PDF export")
 
 # Main Page Landing
-st.title("Quantum-Inspired Fleet Decarbonization Platform")
-st.markdown(
-    """
-    **QGreenFleet** solves complex maritime deployment challenges by coupling **Quantum-Inspired Evolutionary Algorithms (QIEA)**
-    with continuous **Quantum-behaved Particle Swarm Optimization (QPSO)**.
-    """
-)
+col_head, col_action = st.columns([3, 1])
+with col_head:
+    st.title("Quantum-Inspired Fleet Decarbonization Platform")
+    st.markdown(
+        """
+        **QGreenFleet** solves complex maritime deployment challenges by coupling **Quantum-Inspired Evolutionary Algorithms (QIEA)**
+        with continuous **Quantum-behaved Particle Swarm Optimization (QPSO)**.
+        """
+    )
+with col_action:
+    st.write("")
+    st.write("")
+    if st.button("⚡ Quick Demo", type="primary", use_container_width=True, help="Jump straight to Optimize with pre-loaded baseline"):
+        st.switch_page("pages/3_Optimize.py")
+
 
 # Render interactive system flow diagram hero visual
 st.plotly_chart(
@@ -211,3 +219,11 @@ if not st.session_state.last_pareto:
     st.info("💡 **Getting Started**: Go to **1_Data** to preview the fleet or generate a synthetic scenario, then proceed to **3_Optimize** to run the quantum engine.")
 else:
     st.success("✅ **Optimization Results In Memory**: Visit **5_Report** to inspect the Pareto trade-off and export the executive and technical PDF reports.")
+
+st.divider()
+st.markdown(
+    "<div style='text-align: center; color: #64748b; font-size: 13px; padding: 12px 0 24px 0; font-weight: 500;'>"
+    "QGreenFleet v0.3 · SIH #26138 · Egreen Quanta"
+    "</div>",
+    unsafe_allow_html=True,
+)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
 from pathlib import Path
 import pandas as pd
 import streamlit as st
@@ -88,13 +89,13 @@ if "tech_pdf_bytes" not in st.session_state or st.session_state.tech_pdf_bytes i
     else:
         st.session_state.tech_pdf_bytes = generate_technical_pdf(report_data)
 
-d_col1, d_col2, d_col3 = st.columns(3)
+d_col1, d_col2 = st.columns(2)
 
 with d_col1:
     st.download_button(
-        label="📄 Download Executive Summary (PDF)",
+        label="📄 Executive Summary",
         data=st.session_state.summary_pdf_bytes,
-        file_name=f"QGreenFleet_Summary_{today_str}.pdf",
+        file_name=f"QGreenFleet_Executive_Summary_{today_str}.pdf",
         mime="application/pdf",
         type="primary",
         use_container_width=True,
@@ -102,15 +103,26 @@ with d_col1:
 
 with d_col2:
     st.download_button(
-        label="📊 Download Technical Report (PDF)",
+        label="📊 Technical Report",
         data=st.session_state.tech_pdf_bytes,
-        file_name=f"QGreenFleet_Technical_{today_str}.pdf",
+        file_name=f"QGreenFleet_Technical_Report_{today_str}.pdf",
         mime="application/pdf",
         type="primary",
         use_container_width=True,
     )
 
-with d_col3:
+render_url = os.environ.get("RENDER_EXTERNAL_URL", "https://qgreenfleet.onrender.com")
+
+s_col1, s_col2 = st.columns([1, 1])
+with s_col1:
+    if st.button("📋 Copy shareable link", use_container_width=True):
+        st.toast(f"Link: {render_url}", icon="📋")
+        st.session_state["show_render_link"] = True
+
+    if st.session_state.get("show_render_link"):
+        st.code(render_url, language="text")
+
+with s_col2:
     pareto_csv_bytes = pd.DataFrame(st.session_state.last_pareto).to_csv(index=False).encode("utf-8")
     st.download_button(
         label="⬇ Download Pareto Frontier (CSV)",
@@ -119,6 +131,7 @@ with d_col3:
         mime="text/csv",
         use_container_width=True,
     )
+
 
 st.divider()
 

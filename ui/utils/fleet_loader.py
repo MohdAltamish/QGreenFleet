@@ -21,6 +21,13 @@ def ensure_session_state() -> None:
     import streamlit as st
     from src.prediction.predictor import FuelPredictor
 
+    @st.cache_resource
+    def _get_predictor() -> FuelPredictor | None:
+        try:
+            return FuelPredictor()
+        except Exception:
+            return None
+
     if "fleet" not in st.session_state or st.session_state.fleet is None:
         default_fleet_path = _PROJECT_ROOT / "data" / "synthetic" / "fleet_20v_5r_seed42.json"
         if default_fleet_path.exists():
@@ -30,19 +37,63 @@ def ensure_session_state() -> None:
             st.session_state.fleet = None
 
     if "predictor" not in st.session_state or st.session_state.predictor is None:
-        try:
-            st.session_state.predictor = FuelPredictor()
-        except Exception:
-            st.session_state.predictor = None
+        with st.spinner("Loading QGreenFleet..."):
+            st.session_state.predictor = _get_predictor()
+
+    # Pre-load case study results at startup for instant scenario switching
+    if "preloaded_scenarios" not in st.session_state:
+        st.session_state.preloaded_scenarios = {}
+        case_study_dir = _PROJECT_ROOT / "outputs" / "case_study"
+        if case_study_dir.exists():
+            import pandas as pd
+            for scen_name in ["baseline", "carbon_100", "cii_tightened", "meoh_subsidized"]:
+                s_dir = case_study_dir / scen_name
+                if (s_dir / "pareto.csv").exists():
+                    df_p = pd.read_csv(s_dir / "pareto.csv")
+                    pareto_list = df_p.to_dict(orient="records")
+                    knee_s = None
+                    if (s_dir / "solution_knee.json").exists():
+                        try:
+                            knee_s = json.loads((s_dir / "solution_knee.json").read_text(encoding="utf-8"))
+                        except Exception:
+                            pass
+                    bau_b = None
+                    if (s_dir / "bau_baseline.json").exists():
+                        try:
+                            bau_b = json.loads((s_dir / "bau_baseline.json").read_text(encoding="utf-8"))
+                        except Exception:
+                            pass
+                    hist = None
+                    if (s_dir / "history.json").exists():
+                        try:
+                            hist = json.loads((s_dir / "history.json").read_text(encoding="utf-8"))
+                        except Exception:
+                            pass
+                    st.session_state.preloaded_scenarios[scen_name] = {
+                        "pareto": pareto_list,
+                        "knee": knee_s,
+                        "bau": bau_b,
+                        "history": hist,
+                    }
 
     if "last_pareto" not in st.session_state or not st.session_state.last_pareto:
-        pareto_csv = _PROJECT_ROOT / "outputs" / "pareto.csv"
-        if pareto_csv.exists():
-            import pandas as pd
-            df_p = pd.read_csv(pareto_csv)
-            st.session_state.last_pareto = df_p.to_dict(orient="records")
+        if st.session_state.get("preloaded_scenarios") and "baseline" in st.session_state.preloaded_scenarios:
+            b_data = st.session_state.preloaded_scenarios["baseline"]
+            st.session_state.last_pareto = b_data["pareto"]
+            st.session_state.selected_solution = b_data["knee"]
+            if b_data["bau"]:
+                st.session_state.bau_baseline = b_data["bau"]
+            if b_data["history"]:
+                st.session_state.last_history = b_data["history"]
+            st.session_state.last_run_time = "Pre-computed (baseline)"
         else:
-            st.session_state.last_pareto = None
+            pareto_csv = _PROJECT_ROOT / "outputs" / "pareto.csv"
+            if pareto_csv.exists():
+                import pandas as pd
+                df_p = pd.read_csv(pareto_csv)
+                st.session_state.last_pareto = df_p.to_dict(orient="records")
+            else:
+                st.session_state.last_pareto = None
 
     if "last_history" not in st.session_state:
         st.session_state.last_history = None
@@ -68,6 +119,7 @@ def ensure_session_state() -> None:
 
     if "last_run_time" not in st.session_state:
         st.session_state.last_run_time = None
+
 
 
 def load_fleet(path_or_content: str | Path | dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:

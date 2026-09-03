@@ -3,8 +3,8 @@ services:
     name: qgreenfleet
     runtime: docker
     dockerfilePath: ./Dockerfile
-    plan: starter
-    region: oregon
     envVars:
       - key: PORT
         value: 7860
+    healthCheckPath: /
+    autoDeploy: true
