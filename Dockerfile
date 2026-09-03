@@ -20,8 +20,5 @@ COPY . .
 # Expose port
 EXPOSE 7860
 
-# Run app
-CMD ["streamlit", "run", "ui/app.py", \
-     "--server.port=7860", \
-     "--server.address=0.0.0.0", \
-     "--server.headless=true"]
+# Run app with dynamic port fallback
+CMD ["sh", "-c", "streamlit run ui/app.py --server.port=${PORT:-7860} --server.address=0.0.0.0 --server.headless=true"]

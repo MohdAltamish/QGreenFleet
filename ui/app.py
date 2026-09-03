@@ -98,6 +98,15 @@ with st.sidebar:
             """,
             unsafe_allow_html=True,
         )
+    elif os.environ.get("RENDER"):
+        st.markdown(
+            """
+            <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
+                🌐 Live on Render
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     else:
         st.markdown(
             """
@@ -107,6 +116,7 @@ with st.sidebar:
             """,
             unsafe_allow_html=True,
         )
+
 
     st.markdown("### System Status")
     # Fleet indicator
