@@ -1,0 +1,28 @@
+{
+  "description": "Per-type calibration factors k = MRV_median / Kaggle_median. Apply to predictions: fuel_calibrated = fuel_raw * k.",
+  "scale_factors": {
+    "bulk": 4.4886,
+    "container": 8.9351,
+    "tanker": 5.5481
+  },
+  "details": {
+    "bulk": {
+      "mrv_median_kg_per_nm": 83.81,
+      "kaggle_median_kg_per_nm": 18.67,
+      "kaggle_to_mrv_ratio": 0.2228,
+      "scale_factor_k": 4.4886
+    },
+    "container": {
+      "mrv_median_kg_per_nm": 168.68,
+      "kaggle_median_kg_per_nm": 18.88,
+      "kaggle_to_mrv_ratio": 0.1119,
+      "scale_factor_k": 8.9351
+    },
+    "tanker": {
+      "mrv_median_kg_per_nm": 108.58,
+      "kaggle_median_kg_per_nm": 19.57,
+      "kaggle_to_mrv_ratio": 0.1802,
+      "scale_factor_k": 5.5481
+    }
+  }
+}

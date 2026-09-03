@@ -1,0 +1,47 @@
+stages:
+  - lint
+  - test
+  - benchmark-smoke
+  - build
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.pip-cache"
+
+cache:
+  paths:
+    - .pip-cache/
+
+lint:
+  stage: lint
+  image: python:3.11-slim
+  script:
+    - pip install ruff
+    - ruff check .
+
+test:
+  stage: test
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt
+    - pytest -q --cov=src --cov-fail-under=70
+
+benchmark-smoke:
+  stage: benchmark-smoke
+  image: python:3.11-slim
+  script:
+    - pip install -r requirements.txt
+    - python -m src.data.generate_synthetic --vessels 5 --routes 3 --seed 42
+    - python -m src.benchmark.run_all --config configs/benchmark.yaml --seeds 1 --instances S --generations 20
+  only:
+    - main
+    - merge_requests
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t qgreenfleet:$CI_COMMIT_SHORT_SHA .
+  only:
+    - main

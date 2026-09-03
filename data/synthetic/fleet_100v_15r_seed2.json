@@ -1,0 +1,1714 @@
+{
+  "seed": 2,
+  "vessels": [
+    {
+      "id": "V000",
+      "type": "container",
+      "dwt": 74468,
+      "capacity_teu": 6206,
+      "engine_kw": 22868,
+      "design_speed": 20.6,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 160.9,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 19170
+    },
+    {
+      "id": "V001",
+      "type": "container",
+      "dwt": 144852,
+      "capacity_teu": 12071,
+      "engine_kw": 52524,
+      "design_speed": 19.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 249.6,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 29728
+    },
+    {
+      "id": "V002",
+      "type": "tanker",
+      "dwt": 47287,
+      "capacity_teu": 47287,
+      "engine_kw": 16141,
+      "design_speed": 13.1,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 76.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 15093
+    },
+    {
+      "id": "V003",
+      "type": "container",
+      "dwt": 136949,
+      "capacity_teu": 11412,
+      "engine_kw": 35682,
+      "design_speed": 18.5,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 240.5,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 28542
+    },
+    {
+      "id": "V004",
+      "type": "bulk",
+      "dwt": 132560,
+      "capacity_teu": 132560,
+      "engine_kw": 39899,
+      "design_speed": 12.9,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 117.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 27884
+    },
+    {
+      "id": "V005",
+      "type": "bulk",
+      "dwt": 92487,
+      "capacity_teu": 92487,
+      "engine_kw": 38004,
+      "design_speed": 15.2,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 92.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 21873
+    },
+    {
+      "id": "V006",
+      "type": "container",
+      "dwt": 88816,
+      "capacity_teu": 7401,
+      "engine_kw": 39514,
+      "design_speed": 19.1,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 180.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 21322
+    },
+    {
+      "id": "V007",
+      "type": "container",
+      "dwt": 134164,
+      "capacity_teu": 11180,
+      "engine_kw": 38709,
+      "design_speed": 20.8,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 237.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 28125
+    },
+    {
+      "id": "V008",
+      "type": "container",
+      "dwt": 54053,
+      "capacity_teu": 4504,
+      "engine_kw": 23317,
+      "design_speed": 18.6,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 130.2,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 16108
+    },
+    {
+      "id": "V009",
+      "type": "bulk",
+      "dwt": 60879,
+      "capacity_teu": 60879,
+      "engine_kw": 20889,
+      "design_speed": 14.5,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 70.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 17132
+    },
+    {
+      "id": "V010",
+      "type": "bulk",
+      "dwt": 45584,
+      "capacity_teu": 45584,
+      "engine_kw": 20002,
+      "design_speed": 16.6,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 57.8,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 14838
+    },
+    {
+      "id": "V011",
+      "type": "container",
+      "dwt": 101506,
+      "capacity_teu": 8459,
+      "engine_kw": 27141,
+      "design_speed": 18.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 197.4,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 23226
+    },
+    {
+      "id": "V012",
+      "type": "bulk",
+      "dwt": 127986,
+      "capacity_teu": 127986,
+      "engine_kw": 49730,
+      "design_speed": 14.4,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 114.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 27198
+    },
+    {
+      "id": "V013",
+      "type": "bulk",
+      "dwt": 67219,
+      "capacity_teu": 67219,
+      "engine_kw": 22056,
+      "design_speed": 12.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 74.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 18083
+    },
+    {
+      "id": "V014",
+      "type": "bulk",
+      "dwt": 193093,
+      "capacity_teu": 193093,
+      "engine_kw": 76791,
+      "design_speed": 15.1,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 149.9,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 36964
+    },
+    {
+      "id": "V015",
+      "type": "bulk",
+      "dwt": 71855,
+      "capacity_teu": 71855,
+      "engine_kw": 24036,
+      "design_speed": 15.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 78.1,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 18778
+    },
+    {
+      "id": "V016",
+      "type": "tanker",
+      "dwt": 205798,
+      "capacity_teu": 205798,
+      "engine_kw": 57768,
+      "design_speed": 15.0,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 202.6,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 38870
+    },
+    {
+      "id": "V017",
+      "type": "bulk",
+      "dwt": 143576,
+      "capacity_teu": 143576,
+      "engine_kw": 62132,
+      "design_speed": 11.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 123.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 29536
+    },
+    {
+      "id": "V018",
+      "type": "container",
+      "dwt": 134094,
+      "capacity_teu": 11174,
+      "engine_kw": 35286,
+      "design_speed": 18.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 237.2,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 28114
+    },
+    {
+      "id": "V019",
+      "type": "container",
+      "dwt": 144981,
+      "capacity_teu": 12082,
+      "engine_kw": 57349,
+      "design_speed": 21.1,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 249.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 29747
+    },
+    {
+      "id": "V020",
+      "type": "container",
+      "dwt": 51502,
+      "capacity_teu": 4292,
+      "engine_kw": 13659,
+      "design_speed": 21.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 126.1,
+      "fuels_allowed": [
+        "HFO",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 15725
+    },
+    {
+      "id": "V021",
+      "type": "bulk",
+      "dwt": 32387,
+      "capacity_teu": 32387,
+      "engine_kw": 9933,
+      "design_speed": 16.9,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 46.1,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 12858
+    },
+    {
+      "id": "V022",
+      "type": "tanker",
+      "dwt": 270714,
+      "capacity_teu": 270714,
+      "engine_kw": 93035,
+      "design_speed": 11.7,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 242.8,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 48607
+    },
+    {
+      "id": "V023",
+      "type": "tanker",
+      "dwt": 81403,
+      "capacity_teu": 81403,
+      "engine_kw": 23308,
+      "design_speed": 13.2,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 109.8,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 20210
+    },
+    {
+      "id": "V024",
+      "type": "container",
+      "dwt": 98001,
+      "capacity_teu": 8167,
+      "engine_kw": 31268,
+      "design_speed": 19.5,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 192.9,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 22700
+    },
+    {
+      "id": "V025",
+      "type": "tanker",
+      "dwt": 227970,
+      "capacity_teu": 227970,
+      "engine_kw": 57529,
+      "design_speed": 14.1,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 216.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 42196
+    },
+    {
+      "id": "V026",
+      "type": "bulk",
+      "dwt": 192373,
+      "capacity_teu": 192373,
+      "engine_kw": 54003,
+      "design_speed": 12.5,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 149.6,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 36856
+    },
+    {
+      "id": "V027",
+      "type": "bulk",
+      "dwt": 129575,
+      "capacity_teu": 129575,
+      "engine_kw": 57363,
+      "design_speed": 17.5,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 115.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 27436
+    },
+    {
+      "id": "V028",
+      "type": "container",
+      "dwt": 48152,
+      "capacity_teu": 4013,
+      "engine_kw": 14266,
+      "design_speed": 20.8,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 120.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 15223
+    },
+    {
+      "id": "V029",
+      "type": "container",
+      "dwt": 37778,
+      "capacity_teu": 3148,
+      "engine_kw": 10584,
+      "design_speed": 19.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 102.8,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 13667
+    },
+    {
+      "id": "V030",
+      "type": "container",
+      "dwt": 99092,
+      "capacity_teu": 8258,
+      "engine_kw": 35205,
+      "design_speed": 21.4,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 194.3,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 22864
+    },
+    {
+      "id": "V031",
+      "type": "tanker",
+      "dwt": 207971,
+      "capacity_teu": 207971,
+      "engine_kw": 66688,
+      "design_speed": 14.7,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 204.0,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 39196
+    },
+    {
+      "id": "V032",
+      "type": "bulk",
+      "dwt": 63310,
+      "capacity_teu": 63310,
+      "engine_kw": 23649,
+      "design_speed": 14.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 71.8,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 17497
+    },
+    {
+      "id": "V033",
+      "type": "tanker",
+      "dwt": 99404,
+      "capacity_teu": 99404,
+      "engine_kw": 28412,
+      "design_speed": 13.2,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 125.3,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 22911
+    },
+    {
+      "id": "V034",
+      "type": "bulk",
+      "dwt": 169037,
+      "capacity_teu": 169037,
+      "engine_kw": 51630,
+      "design_speed": 15.1,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 137.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 33356
+    },
+    {
+      "id": "V035",
+      "type": "bulk",
+      "dwt": 71795,
+      "capacity_teu": 71795,
+      "engine_kw": 18793,
+      "design_speed": 13.3,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 78.0,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 18769
+    },
+    {
+      "id": "V036",
+      "type": "bulk",
+      "dwt": 81568,
+      "capacity_teu": 81568,
+      "engine_kw": 32434,
+      "design_speed": 15.3,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 84.9,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 20235
+    },
+    {
+      "id": "V037",
+      "type": "bulk",
+      "dwt": 77584,
+      "capacity_teu": 77584,
+      "engine_kw": 31120,
+      "design_speed": 11.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 82.1,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 19638
+    },
+    {
+      "id": "V038",
+      "type": "tanker",
+      "dwt": 207101,
+      "capacity_teu": 207101,
+      "engine_kw": 52678,
+      "design_speed": 13.0,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 203.4,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 39065
+    },
+    {
+      "id": "V039",
+      "type": "bulk",
+      "dwt": 161336,
+      "capacity_teu": 161336,
+      "engine_kw": 51590,
+      "design_speed": 12.6,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 133.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 32200
+    },
+    {
+      "id": "V040",
+      "type": "tanker",
+      "dwt": 43594,
+      "capacity_teu": 43594,
+      "engine_kw": 13143,
+      "design_speed": 16.8,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 72.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 14539
+    },
+    {
+      "id": "V041",
+      "type": "bulk",
+      "dwt": 63787,
+      "capacity_teu": 63787,
+      "engine_kw": 19802,
+      "design_speed": 13.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 72.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 17568
+    },
+    {
+      "id": "V042",
+      "type": "tanker",
+      "dwt": 59454,
+      "capacity_teu": 59454,
+      "engine_kw": 20137,
+      "design_speed": 15.6,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 89.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 16918
+    },
+    {
+      "id": "V043",
+      "type": "bulk",
+      "dwt": 85379,
+      "capacity_teu": 85379,
+      "engine_kw": 22548,
+      "design_speed": 13.3,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 87.5,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 20807
+    },
+    {
+      "id": "V044",
+      "type": "bulk",
+      "dwt": 151872,
+      "capacity_teu": 151872,
+      "engine_kw": 52017,
+      "design_speed": 14.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 127.9,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 30781
+    },
+    {
+      "id": "V045",
+      "type": "container",
+      "dwt": 37340,
+      "capacity_teu": 3112,
+      "engine_kw": 14463,
+      "design_speed": 20.1,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 102.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 13601
+    },
+    {
+      "id": "V046",
+      "type": "bulk",
+      "dwt": 93537,
+      "capacity_teu": 93537,
+      "engine_kw": 34683,
+      "design_speed": 12.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 92.9,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 22031
+    },
+    {
+      "id": "V047",
+      "type": "container",
+      "dwt": 139121,
+      "capacity_teu": 11593,
+      "engine_kw": 49935,
+      "design_speed": 18.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 243.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 28868
+    },
+    {
+      "id": "V048",
+      "type": "container",
+      "dwt": 76224,
+      "capacity_teu": 6352,
+      "engine_kw": 28697,
+      "design_speed": 18.5,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 163.4,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 19434
+    },
+    {
+      "id": "V049",
+      "type": "container",
+      "dwt": 143652,
+      "capacity_teu": 11971,
+      "engine_kw": 59303,
+      "design_speed": 20.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 248.2,
+      "fuels_allowed": [
+        "HFO",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 29548
+    },
+    {
+      "id": "V050",
+      "type": "bulk",
+      "dwt": 167915,
+      "capacity_teu": 167915,
+      "engine_kw": 54334,
+      "design_speed": 11.4,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 136.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 33187
+    },
+    {
+      "id": "V051",
+      "type": "bulk",
+      "dwt": 34748,
+      "capacity_teu": 34748,
+      "engine_kw": 14598,
+      "design_speed": 14.2,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 48.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 13212
+    },
+    {
+      "id": "V052",
+      "type": "tanker",
+      "dwt": 208794,
+      "capacity_teu": 208794,
+      "engine_kw": 79722,
+      "design_speed": 12.9,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 204.5,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 39319
+    },
+    {
+      "id": "V053",
+      "type": "tanker",
+      "dwt": 246852,
+      "capacity_teu": 246852,
+      "engine_kw": 105656,
+      "design_speed": 15.5,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 228.4,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 45028
+    },
+    {
+      "id": "V054",
+      "type": "container",
+      "dwt": 27407,
+      "capacity_teu": 2284,
+      "engine_kw": 11622,
+      "design_speed": 19.9,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 83.2,
+      "fuels_allowed": [
+        "HFO",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 12111
+    },
+    {
+      "id": "V055",
+      "type": "tanker",
+      "dwt": 240633,
+      "capacity_teu": 240633,
+      "engine_kw": 86331,
+      "design_speed": 15.6,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 224.6,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 44095
+    },
+    {
+      "id": "V056",
+      "type": "bulk",
+      "dwt": 47663,
+      "capacity_teu": 47663,
+      "engine_kw": 13279,
+      "design_speed": 12.4,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 59.5,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 15150
+    },
+    {
+      "id": "V057",
+      "type": "tanker",
+      "dwt": 128627,
+      "capacity_teu": 128627,
+      "engine_kw": 35504,
+      "design_speed": 16.0,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 148.5,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 27294
+    },
+    {
+      "id": "V058",
+      "type": "bulk",
+      "dwt": 161720,
+      "capacity_teu": 161720,
+      "engine_kw": 55121,
+      "design_speed": 13.4,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 133.4,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 32258
+    },
+    {
+      "id": "V059",
+      "type": "container",
+      "dwt": 108448,
+      "capacity_teu": 9037,
+      "engine_kw": 46083,
+      "design_speed": 17.9,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 206.2,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 24267
+    },
+    {
+      "id": "V060",
+      "type": "container",
+      "dwt": 123578,
+      "capacity_teu": 10298,
+      "engine_kw": 47754,
+      "design_speed": 18.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 224.8,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 26537
+    },
+    {
+      "id": "V061",
+      "type": "container",
+      "dwt": 133928,
+      "capacity_teu": 11161,
+      "engine_kw": 37872,
+      "design_speed": 20.4,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 237.0,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 28089
+    },
+    {
+      "id": "V062",
+      "type": "bulk",
+      "dwt": 60670,
+      "capacity_teu": 60670,
+      "engine_kw": 24939,
+      "design_speed": 11.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 69.8,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 17101
+    },
+    {
+      "id": "V063",
+      "type": "container",
+      "dwt": 129014,
+      "capacity_teu": 10751,
+      "engine_kw": 57761,
+      "design_speed": 17.5,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 231.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 27352
+    },
+    {
+      "id": "V064",
+      "type": "container",
+      "dwt": 99928,
+      "capacity_teu": 8327,
+      "engine_kw": 25252,
+      "design_speed": 20.8,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 195.4,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 22989
+    },
+    {
+      "id": "V065",
+      "type": "tanker",
+      "dwt": 93846,
+      "capacity_teu": 93846,
+      "engine_kw": 34396,
+      "design_speed": 15.6,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 120.6,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 22077
+    },
+    {
+      "id": "V066",
+      "type": "container",
+      "dwt": 88782,
+      "capacity_teu": 7398,
+      "engine_kw": 26548,
+      "design_speed": 20.6,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 180.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 21317
+    },
+    {
+      "id": "V067",
+      "type": "bulk",
+      "dwt": 94893,
+      "capacity_teu": 94893,
+      "engine_kw": 29891,
+      "design_speed": 14.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 93.8,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 22234
+    },
+    {
+      "id": "V068",
+      "type": "bulk",
+      "dwt": 133482,
+      "capacity_teu": 133482,
+      "engine_kw": 36147,
+      "design_speed": 13.1,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 117.5,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 28022
+    },
+    {
+      "id": "V069",
+      "type": "bulk",
+      "dwt": 199483,
+      "capacity_teu": 199483,
+      "engine_kw": 57722,
+      "design_speed": 15.2,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 153.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 37922
+    },
+    {
+      "id": "V070",
+      "type": "bulk",
+      "dwt": 82742,
+      "capacity_teu": 82742,
+      "engine_kw": 21096,
+      "design_speed": 12.6,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 85.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 20411
+    },
+    {
+      "id": "V071",
+      "type": "tanker",
+      "dwt": 207392,
+      "capacity_teu": 207392,
+      "engine_kw": 70047,
+      "design_speed": 11.6,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 203.6,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 39109
+    },
+    {
+      "id": "V072",
+      "type": "tanker",
+      "dwt": 99461,
+      "capacity_teu": 99461,
+      "engine_kw": 34313,
+      "design_speed": 15.3,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 125.4,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 22919
+    },
+    {
+      "id": "V073",
+      "type": "bulk",
+      "dwt": 104429,
+      "capacity_teu": 104429,
+      "engine_kw": 45405,
+      "design_speed": 13.6,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 99.9,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 23664
+    },
+    {
+      "id": "V074",
+      "type": "bulk",
+      "dwt": 41483,
+      "capacity_teu": 41483,
+      "engine_kw": 17250,
+      "design_speed": 11.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 54.3,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 14222
+    },
+    {
+      "id": "V075",
+      "type": "bulk",
+      "dwt": 70518,
+      "capacity_teu": 70518,
+      "engine_kw": 27153,
+      "design_speed": 13.3,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 77.1,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 18578
+    },
+    {
+      "id": "V076",
+      "type": "tanker",
+      "dwt": 256906,
+      "capacity_teu": 256906,
+      "engine_kw": 102881,
+      "design_speed": 15.0,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 234.5,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 46536
+    },
+    {
+      "id": "V077",
+      "type": "container",
+      "dwt": 126256,
+      "capacity_teu": 10521,
+      "engine_kw": 32761,
+      "design_speed": 19.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 228.0,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 26938
+    },
+    {
+      "id": "V078",
+      "type": "bulk",
+      "dwt": 29496,
+      "capacity_teu": 29496,
+      "engine_kw": 9787,
+      "design_speed": 16.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 43.4,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 12424
+    },
+    {
+      "id": "V079",
+      "type": "bulk",
+      "dwt": 104097,
+      "capacity_teu": 104097,
+      "engine_kw": 29650,
+      "design_speed": 13.0,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 99.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 23615
+    },
+    {
+      "id": "V080",
+      "type": "container",
+      "dwt": 149671,
+      "capacity_teu": 12473,
+      "engine_kw": 58597,
+      "design_speed": 18.1,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 255.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 30451
+    },
+    {
+      "id": "V081",
+      "type": "container",
+      "dwt": 52788,
+      "capacity_teu": 4399,
+      "engine_kw": 15316,
+      "design_speed": 19.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 128.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 15918
+    },
+    {
+      "id": "V082",
+      "type": "tanker",
+      "dwt": 195369,
+      "capacity_teu": 195369,
+      "engine_kw": 74786,
+      "design_speed": 13.1,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 195.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 37305
+    },
+    {
+      "id": "V083",
+      "type": "tanker",
+      "dwt": 185211,
+      "capacity_teu": 185211,
+      "engine_kw": 72419,
+      "design_speed": 15.6,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 189.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 35782
+    },
+    {
+      "id": "V084",
+      "type": "container",
+      "dwt": 103743,
+      "capacity_teu": 8645,
+      "engine_kw": 26255,
+      "design_speed": 19.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 200.2,
+      "fuels_allowed": [
+        "HFO",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 23561
+    },
+    {
+      "id": "V085",
+      "type": "container",
+      "dwt": 135882,
+      "capacity_teu": 11324,
+      "engine_kw": 45021,
+      "design_speed": 19.4,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 239.3,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 28382
+    },
+    {
+      "id": "V086",
+      "type": "container",
+      "dwt": 78568,
+      "capacity_teu": 6547,
+      "engine_kw": 29236,
+      "design_speed": 19.0,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 166.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 19785
+    },
+    {
+      "id": "V087",
+      "type": "tanker",
+      "dwt": 197961,
+      "capacity_teu": 197961,
+      "engine_kw": 69889,
+      "design_speed": 15.8,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 197.4,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 37694
+    },
+    {
+      "id": "V088",
+      "type": "container",
+      "dwt": 92127,
+      "capacity_teu": 7677,
+      "engine_kw": 25604,
+      "design_speed": 20.9,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 185.1,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 21819
+    },
+    {
+      "id": "V089",
+      "type": "container",
+      "dwt": 20980,
+      "capacity_teu": 1748,
+      "engine_kw": 7518,
+      "design_speed": 18.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 69.7,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 11147
+    },
+    {
+      "id": "V090",
+      "type": "tanker",
+      "dwt": 249106,
+      "capacity_teu": 249106,
+      "engine_kw": 76624,
+      "design_speed": 14.0,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 229.8,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 45366
+    },
+    {
+      "id": "V091",
+      "type": "bulk",
+      "dwt": 195070,
+      "capacity_teu": 195070,
+      "engine_kw": 65788,
+      "design_speed": 12.9,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 150.9,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 37261
+    },
+    {
+      "id": "V092",
+      "type": "container",
+      "dwt": 52384,
+      "capacity_teu": 4365,
+      "engine_kw": 13888,
+      "design_speed": 20.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 127.6,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 15858
+    },
+    {
+      "id": "V093",
+      "type": "container",
+      "dwt": 34339,
+      "capacity_teu": 2862,
+      "engine_kw": 9356,
+      "design_speed": 19.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 96.5,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 13151
+    },
+    {
+      "id": "V094",
+      "type": "container",
+      "dwt": 43583,
+      "capacity_teu": 3632,
+      "engine_kw": 14542,
+      "design_speed": 19.3,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 113.0,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 14537
+    },
+    {
+      "id": "V095",
+      "type": "container",
+      "dwt": 126278,
+      "capacity_teu": 10523,
+      "engine_kw": 32330,
+      "design_speed": 19.2,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 228.0,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 26942
+    },
+    {
+      "id": "V096",
+      "type": "bulk",
+      "dwt": 89473,
+      "capacity_teu": 89473,
+      "engine_kw": 34754,
+      "design_speed": 13.8,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 90.2,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 21421
+    },
+    {
+      "id": "V097",
+      "type": "container",
+      "dwt": 36769,
+      "capacity_teu": 3064,
+      "engine_kw": 14903,
+      "design_speed": 17.9,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 101.0,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 13515
+    },
+    {
+      "id": "V098",
+      "type": "container",
+      "dwt": 94828,
+      "capacity_teu": 7902,
+      "engine_kw": 38867,
+      "design_speed": 19.4,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 188.7,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 22224
+    },
+    {
+      "id": "V099",
+      "type": "container",
+      "dwt": 100689,
+      "capacity_teu": 8391,
+      "engine_kw": 42320,
+      "design_speed": 20.5,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 196.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 23103
+    }
+  ],
+  "routes": [
+    {
+      "id": "R0",
+      "distance_nm": 2315,
+      "schedule_days": 10.6,
+      "demand_teu": 15318,
+      "weather_severity": 2,
+      "lng_available": false,
+      "meoh_available": true,
+      "shore_power": true
+    },
+    {
+      "id": "R1",
+      "distance_nm": 516,
+      "schedule_days": 2.1,
+      "demand_teu": 5931,
+      "weather_severity": 2,
+      "lng_available": false,
+      "meoh_available": true,
+      "shore_power": true
+    },
+    {
+      "id": "R2",
+      "distance_nm": 2433,
+      "schedule_days": 10.5,
+      "demand_teu": 14498,
+      "weather_severity": 2,
+      "lng_available": false,
+      "meoh_available": true,
+      "shore_power": false
+    },
+    {
+      "id": "R3",
+      "distance_nm": 5565,
+      "schedule_days": 22.9,
+      "demand_teu": 10394,
+      "weather_severity": 2,
+      "lng_available": true,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R4",
+      "distance_nm": 5849,
+      "schedule_days": 27.7,
+      "demand_teu": 16847,
+      "weather_severity": 1,
+      "lng_available": true,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R5",
+      "distance_nm": 2085,
+      "schedule_days": 6.5,
+      "demand_teu": 11046,
+      "weather_severity": 2,
+      "lng_available": false,
+      "meoh_available": true,
+      "shore_power": false
+    },
+    {
+      "id": "R6",
+      "distance_nm": 1856,
+      "schedule_days": 5.8,
+      "demand_teu": 11019,
+      "weather_severity": 0,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R7",
+      "distance_nm": 5520,
+      "schedule_days": 24.4,
+      "demand_teu": 23551,
+      "weather_severity": 1,
+      "lng_available": false,
+      "meoh_available": true,
+      "shore_power": false
+    },
+    {
+      "id": "R8",
+      "distance_nm": 6915,
+      "schedule_days": 31.2,
+      "demand_teu": 8790,
+      "weather_severity": 0,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R9",
+      "distance_nm": 7488,
+      "schedule_days": 34.9,
+      "demand_teu": 38128,
+      "weather_severity": 2,
+      "lng_available": true,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R10",
+      "distance_nm": 7603,
+      "schedule_days": 33.6,
+      "demand_teu": 14589,
+      "weather_severity": 1,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R11",
+      "distance_nm": 6960,
+      "schedule_days": 30.2,
+      "demand_teu": 15631,
+      "weather_severity": 1,
+      "lng_available": true,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R12",
+      "distance_nm": 5334,
+      "schedule_days": 23.0,
+      "demand_teu": 12529,
+      "weather_severity": 2,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": true
+    },
+    {
+      "id": "R13",
+      "distance_nm": 1931,
+      "schedule_days": 8.7,
+      "demand_teu": 10469,
+      "weather_severity": 1,
+      "lng_available": true,
+      "meoh_available": false,
+      "shore_power": true
+    },
+    {
+      "id": "R14",
+      "distance_nm": 7215,
+      "schedule_days": 33.1,
+      "demand_teu": 16996,
+      "weather_severity": 0,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": true
+    }
+  ]
+}

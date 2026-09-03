@@ -1,0 +1,54 @@
+{
+  "model_name": "PhysicsBaseline",
+  "model_key": "physics",
+  "params": {
+    "feature_names": [
+      "speed_kn",
+      "speed_cubed",
+      "draft_m",
+      "weather_severity",
+      "maint_Critical",
+      "maint_Fair",
+      "maint_Good",
+      "route_Coastal",
+      "route_Long-haul",
+      "route_Short-haul",
+      "route_Transoceanic",
+      "type_Bulk Carrier",
+      "type_Container Ship",
+      "type_Fish Carrier",
+      "type_Tanker"
+    ],
+    "coef": [
+      3.5609506072020927e-06,
+      -0.003238625853206204
+    ],
+    "intercept": 8.055225188241874
+  },
+  "feature_columns": [
+    "speed_kn",
+    "speed_cubed",
+    "draft_m",
+    "weather_severity",
+    "maint_Critical",
+    "maint_Fair",
+    "maint_Good",
+    "route_Coastal",
+    "route_Long-haul",
+    "route_Short-haul",
+    "route_Transoceanic",
+    "type_Bulk Carrier",
+    "type_Container Ship",
+    "type_Fish Carrier",
+    "type_Tanker"
+  ],
+  "metrics": {
+    "cv_rmse_mean": 3.2767313873906927,
+    "cv_rmse_std": 0.07740827843322605,
+    "test_rmse": 3.2554548198767255,
+    "test_mape": 50.72825419575757,
+    "test_r2": -0.0029969296387040156
+  },
+  "seed": 42,
+  "timestamp": "2026-09-02T19:55:05.862451+00:00"
+}

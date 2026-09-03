@@ -1,0 +1,13 @@
+instances:
+  S: {fleet: data/synthetic/fleet_5v_3r_seed0.json,   pop: 50,  gens: 100}
+  M: {fleet: data/synthetic/fleet_20v_4r_seed1.json,  pop: 100, gens: 100}
+  L: {fleet: data/synthetic/fleet_50v_10r_seed1.json, pop: 100, gens: 100}
+  XL: {fleet: data/synthetic/fleet_100v_15r_seed2.json, pop: 100, gens: 100, seeds: [42, 7, 13]}
+fuel_prices:
+  HFO: 650
+  LNG_DIESEL: 800
+  MEOH_GREEN: 1200
+  H2_GREEN: 3000
+  NH3_GREEN: 2500
+carbon_price: 100.0
+seeds: [42, 7, 13, 99, 2024]

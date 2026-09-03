@@ -1,0 +1,89 @@
+{
+  "model_type": "QPSO-XGBoost",
+  "dataset": "EU MRV THETIS (21,622 records, 13,820 unique IMO vessels)",
+  "train_samples": 17320,
+  "test_samples": 4302,
+  "test_metrics": {
+    "rmse": 44.345923938216764,
+    "mape": 28.50307146139224,
+    "r2": 0.5424682014061228
+  },
+  "default_xgb_metrics": {
+    "rmse": 45.25388256303747,
+    "mape": 28.664833502409497,
+    "r2": 0.523540974105045
+  },
+  "cv_5fold": {
+    "rmse_mean": 49.52555214550682,
+    "rmse_std": 2.0036936823506593
+  },
+  "per_category": {
+    "container": {
+      "rmse": 63.37894974364621,
+      "mape": 38.823722537985006,
+      "r2": 0.43838161676599363
+    },
+    "bulk": {
+      "rmse": 23.49579231344868,
+      "mape": 20.622062065617968,
+      "r2": 0.3957104495086866
+    },
+    "tanker": {
+      "rmse": 52.75438537432769,
+      "mape": 33.565510361566425,
+      "r2": 0.3493905265776944
+    }
+  },
+  "hyperparameters": {
+    "learning_rate": 0.025420537828087324,
+    "max_depth": 7,
+    "subsample": 0.7807484076683175,
+    "colsample_bytree": 0.9021346219688454,
+    "n_estimators": 184,
+    "min_child_weight": 9
+  },
+  "feature_names": [
+    "avg_speed_kn",
+    "speed_cubed",
+    "eedi_value",
+    "laden_ratio",
+    "fuel_per_dwt_nm",
+    "category_bulk",
+    "category_container",
+    "category_tanker"
+  ],
+  "category_imputations": {
+    "bulk": {
+      "eedi_value": 5.23,
+      "laden_ratio": 0.7950086614606248,
+      "fuel_per_dwt_nm": 6.71
+    },
+    "container": {
+      "eedi_value": 17.240000000000002,
+      "laden_ratio": 0.9524908599399167,
+      "fuel_per_dwt_nm": 11.370000000000001
+    },
+    "tanker": {
+      "eedi_value": 5.51,
+      "laden_ratio": 0.6157448309210359,
+      "fuel_per_dwt_nm": 0.92
+    }
+  },
+  "fleet_defaults": {
+    "container": {
+      "eedi_value": 17.240000000000002,
+      "laden_ratio": 0.75,
+      "fuel_per_dwt_nm": 0.003
+    },
+    "bulk": {
+      "eedi_value": 5.23,
+      "laden_ratio": 0.5,
+      "fuel_per_dwt_nm": 0.002
+    },
+    "tanker": {
+      "eedi_value": 5.51,
+      "laden_ratio": 0.5,
+      "fuel_per_dwt_nm": 0.0025
+    }
+  }
+}

@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data (large files)
+data/raw/*.csv
+data/processed/*.parquet
+data/synthetic/*.csv
+data/synthetic/*.parquet
+
+# Models
+models/*.pkl
+models/*.pt
+
+# Outputs
+outputs/
+charts/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+.docker/
+
+# Caches & Streamlit
+.cache/
+.pytest_cache/
+.streamlit/credentials.toml

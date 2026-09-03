@@ -1,0 +1,17 @@
+# Case Study Configuration — 20-vessel fleet optimization
+fleet_file: data/synthetic/fleet_20v_5r_seed42.json
+pop_size: 200
+generations: 300
+theta_start: 0.15707963  # 0.05π
+theta_end: 0.01570796   # 0.005π
+mutation_prob: 0.02
+lambda0: 10.0
+fuel_prices:
+  HFO: 650
+  LNG_DIESEL: 800
+  MEOH_GREEN: 1200
+  H2_GREEN: 3000
+  NH3_GREEN: 2500
+carbon_price: 0.0
+seed: 42
+archive_max: 100

@@ -1,0 +1,116 @@
+{
+  "seed": 0,
+  "vessels": [
+    {
+      "id": "V000",
+      "type": "bulk",
+      "dwt": 184732,
+      "capacity_teu": 184732,
+      "engine_kw": 73135,
+      "design_speed": 12.9,
+      "vmin": 8.0,
+      "vmax": 18.0,
+      "fuel_per_nm_kg": 145.6,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 35710
+    },
+    {
+      "id": "V001",
+      "type": "container",
+      "dwt": 141235,
+      "capacity_teu": 11770,
+      "engine_kw": 59528,
+      "design_speed": 19.7,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 245.5,
+      "fuels_allowed": [
+        "HFO",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 29185
+    },
+    {
+      "id": "V002",
+      "type": "container",
+      "dwt": 113503,
+      "capacity_teu": 9459,
+      "engine_kw": 40667,
+      "design_speed": 20.6,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 212.5,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL"
+      ],
+      "charter_per_day": 25026
+    },
+    {
+      "id": "V003",
+      "type": "container",
+      "dwt": 72063,
+      "capacity_teu": 6005,
+      "engine_kw": 27681,
+      "design_speed": 20.5,
+      "vmin": 8.0,
+      "vmax": 24.0,
+      "fuel_per_nm_kg": 157.4,
+      "fuels_allowed": [
+        "HFO",
+        "LNG_DIESEL",
+        "MEOH_GREEN"
+      ],
+      "charter_per_day": 18809
+    },
+    {
+      "id": "V004",
+      "type": "tanker",
+      "dwt": 196154,
+      "capacity_teu": 196154,
+      "engine_kw": 88160,
+      "design_speed": 13.1,
+      "vmin": 8.0,
+      "vmax": 18.5,
+      "fuel_per_nm_kg": 196.3,
+      "fuels_allowed": [
+        "HFO"
+      ],
+      "charter_per_day": 37423
+    }
+  ],
+  "routes": [
+    {
+      "id": "R0",
+      "distance_nm": 5642,
+      "schedule_days": 25.9,
+      "demand_teu": 12287,
+      "weather_severity": 2,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": true
+    },
+    {
+      "id": "R1",
+      "distance_nm": 4144,
+      "schedule_days": 19.9,
+      "demand_teu": 24279,
+      "weather_severity": 0,
+      "lng_available": false,
+      "meoh_available": false,
+      "shore_power": false
+    },
+    {
+      "id": "R2",
+      "distance_nm": 3034,
+      "schedule_days": 14.5,
+      "demand_teu": 23938,
+      "weather_severity": 2,
+      "lng_available": true,
+      "meoh_available": false,
+      "shore_power": false
+    }
+  ]
+}
