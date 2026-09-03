@@ -21,4 +21,4 @@ All vessels HFO at design speed, first-fit assignment → record cost, CO₂e, C
 - **4. Resilient Under Tightened 2030 CII**: 100% of the fleet achieves compliant A–C ratings even with next-decade emission caps.
 - **5. 100% Cargo Delivery**: All scenarios deliver 100% of cargo demand on schedule.
 
-See detailed report: [case-study-results.md](file:///Users/mohdaltamish/Desktop/%20QGreenFleet/docs/case-study-results.md).
+See detailed report: [case-study-results.md](case-study-results.md).

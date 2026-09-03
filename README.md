@@ -41,7 +41,7 @@ demand, schedules, and IMO CII emission rules.
 ![System Architecture](flowchart/Archicture.png)
 
 ### 🔄 Data Ingestion & Calibration Pipeline
-![Data Pipeline](flowchart/Data%20Pipeline.drawio.png)
+![Data Pipeline](flowchart/Data_Pipeline.drawio.png)
 
 ### ⚛️ Quantum-Inspired Optimization Flowchart (QIEA + QPSO)
 ![Optimization Algorithm Workflow](flowchart/Algorithim.png)
@@ -95,7 +95,7 @@ make benchmark   # vs GA / MOPSO / SA across S/M/L/XL instances
 make all         # everything, in order
 ```
 
-Dataset download instructions: [GUIDE.md §4](GUIDE.md). Sources: EU MRV THETIS
+Dataset download instructions: [GUIDE.md §4](GUIDE.md#4-getting-the-data). Sources: EU MRV THETIS
 (real ship emissions), Kaggle ship performance dataset (voyage features),
 IMO Fourth GHG Study 2020 + FuelEU Annex II (emission factors — built in).
 
@@ -105,11 +105,11 @@ IMO Fourth GHG Study 2020 + FuelEU Annex II (emission factors — built in).
 
 | # | Expected Deliverable | Implementation | Evidence |
 |---|---|---|---|
-| 1 | Fuel consumption prediction model | Two-stage surrogate: MRV real-data model + voyage adjustment, QPSO-tuned XGBoost, per-type calibration | `outputs/prediction_report.md`, `outputs/mrv_model_report.md`, `outputs/calibration_check.png` |
-| 2 | Mathematical optimization formulation | Multi-objective MINLP: 4 decision variable families, 3 objectives, 6 constraint classes | `docs/mathematical-model.md`, `src/optimization/` |
-| 3 | Quantum-inspired optimization algorithm | QIEA (Q-bit rotation gates) + QPSO (speeds) + NSGA-II, from scratch in NumPy | `docs/algorithms.md`, `src/optimization/qiea.py` |
-| 4 | Software platform / DSS | 5-page Streamlit app: data, prediction, optimization, scenarios, dual PDF reports | `ui/`, `docs/samples/` |
-| 5 | Demonstration | 4-scenario policy case study + S/M/L/XL benchmarks vs GA/MOPSO/SA + implementation guide | `docs/case-study-results.md`, `outputs/benchmark_report.md`, `docs/implementation-guide.md` |
+| 1 | Fuel consumption prediction model | Two-stage surrogate: MRV real-data model + voyage adjustment, QPSO-tuned XGBoost, per-type calibration | [outputs/prediction_report.md](outputs/prediction_report.md), [outputs/mrv_model_report.md](outputs/mrv_model_report.md), [outputs/calibration_check.png](outputs/calibration_check.png) |
+| 2 | Mathematical optimization formulation | Multi-objective MINLP: 4 decision variable families, 3 objectives, 6 constraint classes | [docs/mathematical-model.md](docs/mathematical-model.md), [src/optimization/](src/optimization/) |
+| 3 | Quantum-inspired optimization algorithm | QIEA (Q-bit rotation gates) + QPSO (speeds) + NSGA-II, from scratch in NumPy | [docs/algorithms.md](docs/algorithms.md), [src/optimization/qiea.py](src/optimization/qiea.py) |
+| 4 | Software platform / DSS | 5-page Streamlit app: data, prediction, optimization, scenarios, dual PDF reports | [ui/](ui/), [docs/samples/](docs/samples/) |
+| 5 | Demonstration | 4-scenario policy case study + S/M/L/XL benchmarks vs GA/MOPSO/SA + implementation guide | [docs/case-study-results.md](docs/case-study-results.md), [outputs/benchmark_report.md](outputs/benchmark_report.md), [docs/implementation-guide.md](docs/implementation-guide.md) |
 
 ---
 
@@ -140,17 +140,50 @@ qgreenfleet/
 
 ## 📚 Documentation
 
-| Doc | Contents |
+All project documentation is organized by domain and directly linked below:
+
+### 🚀 Getting Started & Master Guides
+| Document | Description |
 |---|---|
-| [GUIDE.md](GUIDE.md) | Install, run, use — start here |
-| [journey.md](journey.md) | Project story, inspiration, challenges & breakthroughs |
-| [project.md](project.md) | Full project overview, use cases, competitive analysis |
-| [docs/architecture.md](docs/architecture.md) | System design |
-| [docs/mathematical-model.md](docs/mathematical-model.md) | Complete MINLP formulation |
-| [docs/algorithms.md](docs/algorithms.md) | QIEA/QPSO design + pseudocode |
-| [docs/benchmarking.md](docs/benchmarking.md) | Evaluation protocol + results |
-| [docs/case-study-results.md](docs/case-study-results.md) | 4-scenario policy findings |
-| [docs/implementation-guide.md](docs/implementation-guide.md) | Deliverable 5 reproduction guide |
+| [GUIDE.md](GUIDE.md) | **Start here**: Installation, 5-min demo, CLI commands, and troubleshooting |
+| [journey.md](journey.md) | Project narrative: story, inspiration, research breakthroughs & development journey |
+| [project.md](project.md) | Master overview: executive summary, competitive analysis, and impact assessment |
+| [docs/context.md](docs/context.md) | Domain context: maritime decarbonization, IMO regulations, and SIH problem background |
+| [docs/instruction.md](docs/instruction.md) | Comprehensive operational manual and environment instructions |
+
+### 📐 Mathematical Formulation & Algorithms
+| Document | Description |
+|---|---|
+| [docs/mathematical-model.md](docs/mathematical-model.md) | Complete MINLP formulation: objective functions ($Z_1, Z_2, Z_3$), decision variables & constraints |
+| [docs/algorithms.md](docs/algorithms.md) | Quantum-inspired optimization: QIEA Q-bit rotation gates, QPSO tunneling, and NSGA-II ranking |
+| [docs/emissions-factors.md](docs/emissions-factors.md) | Well-to-Wake emission factor tables (IMO Fourth GHG Study, FuelEU Maritime) and CII rating math |
+| [docs/benchmarking.md](docs/benchmarking.md) | Benchmark protocol: evaluation budget fairness, Hypervolume/IGD metrics, and classical GA/MOPSO/SA comparison |
+
+### 🏛️ Architecture, Design & API
+| Document | Description |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Modular layered architecture (User, Engine, Domain, Data) and decoupling design |
+| [docs/design.md](docs/design.md) | Detailed technical design decisions, algorithmic trade-offs, and computational pipeline |
+| [docs/api-spec.md](docs/api-spec.md) | FastAPI REST API specification: `/predict`, `/optimize`, `/scenarios`, and `/report` |
+| [docs/data-dictionary.md](docs/data-dictionary.md) | Data schemas, variable definitions, and engineering units for fleet and voyage datasets |
+
+### 📊 Validation, Results & Demonstration
+| Document | Description |
+|---|---|
+| [docs/case-study.md](docs/case-study.md) | 20-vessel commercial fleet case study configuration, corridor routes, and port infrastructure |
+| [docs/case-study-results.md](docs/case-study-results.md) | Verified case study findings across Baseline, Carbon Tax, CII, and Methanol Subsidy scenarios |
+| [docs/implementation-guide.md](docs/implementation-guide.md) | Reproduction guide for SIH evaluators covering all 5 deliverables |
+| [docs/testing.md](docs/testing.md) | Comprehensive test suite documentation: 96 unit, integration, and benchmark tests |
+
+### 📋 Specifications, Roadmap & Deliverables
+| Document | Description |
+|---|---|
+| [docs/prd.md](docs/prd.md) | Product Requirements Document (PRD): stakeholder personas, core features, and success metrics |
+| [docs/requirements.md](docs/requirements.md) | Functional and non-functional requirements specification |
+| [docs/roadmap.md](docs/roadmap.md) | Development roadmap: future vessel classes, real-time telemetry, and weather routing |
+| [docs/deployment.md](docs/deployment.md) | Production deployment guide: Render, Docker, and Streamlit Cloud configuration |
+| [docs/prompts.md](docs/prompts.md) | LLM prompt engineering guidelines and conversational protocols |
+| [docs/samples/](docs/samples/) | Pre-compiled PDF artifacts: 2-page Executive Summary and 12-page Technical Report |
 
 ---
 

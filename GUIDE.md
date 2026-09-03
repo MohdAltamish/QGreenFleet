@@ -300,8 +300,12 @@ qgreenfleet/
 └── GUIDE.md          # ← you are here
 ```
 
-Deeper documentation: `docs/architecture.md`, `docs/algorithms.md`,
-`docs/mathematical-model.md`, `docs/implementation-guide.md`.
+### Deeper Documentation
+- **Architecture & System Design:** [docs/architecture.md](docs/architecture.md) · [docs/design.md](docs/design.md) · [docs/api-spec.md](docs/api-spec.md)
+- **Math & Algorithms:** [docs/mathematical-model.md](docs/mathematical-model.md) · [docs/algorithms.md](docs/algorithms.md) · [docs/emissions-factors.md](docs/emissions-factors.md)
+- **Validation & Benchmarks:** [docs/benchmarking.md](docs/benchmarking.md) · [docs/case-study-results.md](docs/case-study-results.md) · [docs/case-study.md](docs/case-study.md) · [docs/testing.md](docs/testing.md)
+- **SIH Deliverables & Operations:** [docs/implementation-guide.md](docs/implementation-guide.md) · [docs/deployment.md](docs/deployment.md) · [docs/prd.md](docs/prd.md) · [docs/context.md](docs/context.md)
+- **Sample Reports:** [docs/samples/](docs/samples/) (Executive Summary & Technical Report PDFs)
 
 ---
 

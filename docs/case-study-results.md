@@ -25,7 +25,7 @@ Four operational policy scenarios were evaluated with full algorithmic evaluatio
 Sensitivity analysis confirms an economic **crossover threshold of $85/t-CO₂e**.
 At or above this carbon price, green methanol becomes cost-optimal over conventional heavy fuel oil without requiring regulatory enforcement.
 
-![Carbon Price Sweep](outputs/carbon_sweep.png)
+![Carbon Price Sweep](../outputs/carbon_sweep.png)
 
 ---
 
