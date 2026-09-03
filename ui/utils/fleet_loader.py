@@ -19,9 +19,40 @@ from src.optimization.individual import Solution
 from src.optimization.objectives import evaluate_objectives
 
 
+@st.cache_resource
+def preload_case_study_results() -> dict[str, dict[str, Any]]:
+    """Load all 4 scenario results at startup for instant access."""
+    import json
+    from pathlib import Path
+    import pandas as pd
+
+    results: dict[str, dict[str, Any]] = {}
+    base = Path("outputs/case_study")
+    if not base.exists():
+        base = _PROJECT_ROOT / "outputs" / "case_study"
+
+    for scenario in ["baseline", "carbon_100", "cii_tightened", "meoh_subsidized"]:
+        p = base / scenario
+        if p.exists():
+            try:
+                data: dict[str, Any] = {
+                    "pareto": pd.read_csv(p / "pareto.csv"),
+                    "knee": json.loads((p / "solution_knee.json").read_text(encoding="utf-8")),
+                    "bau": json.loads((p / "bau_baseline.json").read_text(encoding="utf-8")),
+                }
+                if (p / "history.json").exists():
+                    try:
+                        data["history"] = json.loads((p / "history.json").read_text(encoding="utf-8"))
+                    except Exception:
+                        pass
+                results[scenario] = data
+            except Exception:
+                pass
+    return results
+
+
 def ensure_session_state() -> None:
     """Ensure all global session state keys are initialized so any subpage works on direct navigation."""
-    import streamlit as st
     from src.prediction.predictor import FuelPredictor
 
     @st.cache_resource
@@ -45,48 +76,17 @@ def ensure_session_state() -> None:
 
     # Pre-load case study results at startup for instant scenario switching
     if "preloaded_scenarios" not in st.session_state:
-        st.session_state.preloaded_scenarios = {}
-        case_study_dir = _PROJECT_ROOT / "outputs" / "case_study"
-        if case_study_dir.exists():
-            import pandas as pd
-            for scen_name in ["baseline", "carbon_100", "cii_tightened", "meoh_subsidized"]:
-                s_dir = case_study_dir / scen_name
-                if (s_dir / "pareto.csv").exists():
-                    df_p = pd.read_csv(s_dir / "pareto.csv")
-                    pareto_list = df_p.to_dict(orient="records")
-                    knee_s = None
-                    if (s_dir / "solution_knee.json").exists():
-                        try:
-                            knee_s = json.loads((s_dir / "solution_knee.json").read_text(encoding="utf-8"))
-                        except Exception:
-                            pass
-                    bau_b = None
-                    if (s_dir / "bau_baseline.json").exists():
-                        try:
-                            bau_b = json.loads((s_dir / "bau_baseline.json").read_text(encoding="utf-8"))
-                        except Exception:
-                            pass
-                    hist = None
-                    if (s_dir / "history.json").exists():
-                        try:
-                            hist = json.loads((s_dir / "history.json").read_text(encoding="utf-8"))
-                        except Exception:
-                            pass
-                    st.session_state.preloaded_scenarios[scen_name] = {
-                        "pareto": pareto_list,
-                        "knee": knee_s,
-                        "bau": bau_b,
-                        "history": hist,
-                    }
+        st.session_state.preloaded_scenarios = preload_case_study_results()
 
     if "last_pareto" not in st.session_state or not st.session_state.last_pareto:
         if st.session_state.get("preloaded_scenarios") and "baseline" in st.session_state.preloaded_scenarios:
             b_data = st.session_state.preloaded_scenarios["baseline"]
-            st.session_state.last_pareto = b_data["pareto"]
+            p_val = b_data["pareto"]
+            st.session_state.last_pareto = p_val.to_dict(orient="records") if isinstance(p_val, pd.DataFrame) else p_val
             st.session_state.selected_solution = b_data["knee"]
-            if b_data["bau"]:
+            if b_data.get("bau"):
                 st.session_state.bau_baseline = b_data["bau"]
-            if b_data["history"]:
+            if b_data.get("history"):
                 st.session_state.last_history = b_data["history"]
             st.session_state.last_run_time = "Pre-computed (baseline)"
         else:

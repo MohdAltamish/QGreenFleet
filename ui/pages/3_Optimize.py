@@ -30,12 +30,13 @@ ensure_session_state()
 st.title("⚛️ Fleet Deployment & Speed Optimization")
 st.markdown("Coupled Quantum-Inspired Evolutionary Algorithm (QIEA) with Quantum-behaved Particle Swarm Optimization (QPSO).")
 
-# Hosted demo mode banner
-is_hosted = bool(os.environ.get("RENDER")) or bool(os.environ.get("SPACE_ID"))
-if is_hosted:
-    st.info("⚡ Demo mode active: pre-computed results load instantly. Live optimization runs ~20 min on hosted CPU.")
-else:
-    st.info("⚡ Demo mode active: pre-computed results load instantly. Live optimization runs ~20 min on hosted CPU.")
+# Cloud performance banner at top
+if os.environ.get('STREAMLIT_SHARING_MODE') or os.environ.get('RENDER') or os.environ.get('IS_STREAMLIT_CLOUD'):
+    st.info(
+        "⚡ **Demo mode:** Pre-computed results load instantly below. "
+        "Live optimization is available but takes ~20 min on cloud CPU.",
+        icon="⚡"
+    )
 
 if not st.session_state.fleet:
     st.warning("⚠️ No active fleet loaded. Please visit **1_Data** to upload or synthesize a fleet first.")
@@ -66,11 +67,12 @@ if not avail_scenarios and (_PROJECT_ROOT / "outputs" / "pareto.csv").exists():
 def _load_scenario(chosen: str):
     if st.session_state.get("preloaded_scenarios") and chosen in st.session_state.preloaded_scenarios:
         scen_data = st.session_state.preloaded_scenarios[chosen]
-        st.session_state.last_pareto = scen_data["pareto"]
+        p_val = scen_data["pareto"]
+        st.session_state.last_pareto = p_val.to_dict(orient="records") if isinstance(p_val, pd.DataFrame) else p_val
         st.session_state.selected_solution = scen_data["knee"]
-        if scen_data["bau"]:
+        if scen_data.get("bau"):
             st.session_state.bau_baseline = scen_data["bau"]
-        if scen_data["history"]:
+        if scen_data.get("history"):
             st.session_state.last_history = scen_data["history"]
     elif chosen == "default (outputs/pareto.csv)":
         df_prev = pd.read_csv(_PROJECT_ROOT / "outputs" / "pareto.csv")
@@ -122,9 +124,9 @@ if avail_scenarios:
 
 
 # ===================================================================== #
-#  Live Optimization Configuration (Optional live run)                  #
+#  Run New Optimization (Collapsed Expander)                            #
 # ===================================================================== #
-with st.expander("🛠️ Live Optimization Parameters & Hyperparameters", expanded=False):
+with st.expander("🚀 Run New Optimization (Live Engine)", expanded=False):
     col_p1, col_p2 = st.columns(2)
 
     with col_p1:
@@ -149,72 +151,68 @@ with st.expander("🛠️ Live Optimization Parameters & Hyperparameters", expan
         "NH3_GREEN": float(nh3_price),
     }
 
-# Pre-Execution BAU Baseline Evaluation for live runs
-if st.session_state.bau_baseline is None or st.button("Recalculate BAU Baseline"):
-    with st.spinner("Evaluating Business-As-Usual fleet baseline..."):
-        st.session_state.bau_baseline = compute_bau_baseline(
-            vessels=vessels,
-            routes=routes,
-            predictor=st.session_state.predictor,
-            fuel_prices=fuel_prices,
-            carbon_price=carbon_tax,
-        )
+    # Pre-Execution BAU Baseline Evaluation for live runs
+    if st.session_state.bau_baseline is None or st.button("Recalculate BAU Baseline"):
+        with st.spinner("Evaluating Business-As-Usual fleet baseline..."):
+            st.session_state.bau_baseline = compute_bau_baseline(
+                vessels=vessels,
+                routes=routes,
+                predictor=st.session_state.predictor,
+                fuel_prices=fuel_prices,
+                carbon_price=carbon_tax,
+            )
 
+    st.markdown("---")
+    c_btn, c_stat = st.columns([1, 3])
 
-# ===================================================================== #
-#  Run Optimization Button & Progress Tracking                           #
-# ===================================================================== #
-st.divider()
-c_btn, c_stat = st.columns([1, 3])
+    with c_btn:
+        run_btn = st.button("🚀 Run Quantum Optimization", type="primary", use_container_width=True)
 
-with c_btn:
-    run_btn = st.button("🚀 Run Quantum Optimization", type="primary", use_container_width=True)
+    progress_bar = st.empty()
+    status_text = st.empty()
 
-progress_bar = st.empty()
-status_text = st.empty()
+    if run_btn:
+        opt_cfg = {
+            "pop_size": pop_size,
+            "generations": generations,
+            "theta_start": 0.05 * np.pi,
+            "theta_end": 0.005 * np.pi,
+            "mutation_prob": 0.02,
+            "lambda0": 10.0,
+            "fuel_prices": fuel_prices,
+            "carbon_price": float(carbon_tax),
+            "archive_max": 100,
+            "seed": 42,
+        }
 
-if run_btn:
-    opt_cfg = {
-        "pop_size": pop_size,
-        "generations": generations,
-        "theta_start": 0.05 * np.pi,
-        "theta_end": 0.005 * np.pi,
-        "mutation_prob": 0.02,
-        "lambda0": 10.0,
-        "fuel_prices": fuel_prices,
-        "carbon_price": float(carbon_tax),
-        "archive_max": 100,
-        "seed": 42,
-    }
+        t0 = time.time()
 
-    t0 = time.time()
+        def update_ui_progress(gen: int, total_gens: int, n_archive: int, hv: float, n_feas: int) -> None:
+            pct = gen / total_gens
+            progress_bar.progress(pct)
+            status_text.text(f"Gen {gen:03d}/{total_gens:03d} | Archive: {n_archive:02d} | HV: {hv:.4f} | Feasible: {n_feas:03d}/{pop_size}")
 
-    def update_ui_progress(gen: int, total_gens: int, n_archive: int, hv: float, n_feas: int) -> None:
-        pct = gen / total_gens
-        progress_bar.progress(pct)
-        status_text.text(f"Gen {gen:03d}/{total_gens:03d} | Archive: {n_archive:02d} | HV: {hv:.4f} | Feasible: {n_feas:03d}/{pop_size}")
+        with st.spinner("Executing QIEA (discrete) + QPSO (speeds) search..."):
+            archive, history = run_qiea(
+                vessels=vessels,
+                routes=routes,
+                config=opt_cfg,
+                predictor=st.session_state.predictor,
+                progress_callback=update_ui_progress,
+            )
 
-    with st.spinner("Executing QIEA (discrete) + QPSO (speeds) search..."):
-        archive, history = run_qiea(
-            vessels=vessels,
-            routes=routes,
-            config=opt_cfg,
-            predictor=st.session_state.predictor,
-            progress_callback=update_ui_progress,
-        )
+        elapsed = time.time() - t0
+        st.session_state.last_pareto = archive
+        st.session_state.last_history = history
+        st.session_state.last_run_time = f"{elapsed:.1f}s"
 
-    elapsed = time.time() - t0
-    st.session_state.last_pareto = archive
-    st.session_state.last_history = history
-    st.session_state.last_run_time = f"{elapsed:.1f}s"
+        # Identify and store knee solution as default selected
+        knee_sol, knee_idx = _find_knee_solution(archive)
+        st.session_state.selected_solution = knee_sol
 
-    # Identify and store knee solution as default selected
-    knee_sol, knee_idx = _find_knee_solution(archive)
-    st.session_state.selected_solution = knee_sol
-
-    # Persist artifacts to outputs
-    save_pareto_artifacts(archive, vessels, routes, _PROJECT_ROOT / "outputs")
-    st.success(f"Optimization completed in {elapsed:.2f}s! Found {len(archive)} non-dominated Pareto solutions.")
+        # Persist artifacts to outputs
+        save_pareto_artifacts(archive, vessels, routes, _PROJECT_ROOT / "outputs")
+        st.success(f"Optimization completed in {elapsed:.2f}s! Found {len(archive)} non-dominated Pareto solutions.")
 
 # ===================================================================== #
 #  Results Visualization: Pareto Front & Convergence                    #

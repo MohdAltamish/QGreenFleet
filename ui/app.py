@@ -22,7 +22,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from src.prediction.predictor import FuelPredictor
 from ui.utils.chart_helpers import system_flow_diagram
-from ui.utils.fleet_loader import compute_bau_baseline, load_fleet
+from ui.utils.fleet_loader import compute_bau_baseline, load_fleet, preload_case_study_results
 
 # Page configuration
 st.set_page_config(
@@ -31,6 +31,26 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+# Task 5 — Check required files on startup
+def check_required_files():
+    required = [
+        "models/best.pkl",
+        "data/synthetic/fleet_20v_5r_seed42.json",
+        "outputs/case_study/baseline/pareto.csv",
+    ]
+    missing = [f for f in required if not (Path(f).exists() or (_PROJECT_ROOT / f).exists())]
+    if missing:
+        st.error(f"Missing required files: {missing}. "
+                 f"Run 'make all' to generate them.")
+        st.stop()
+
+check_required_files()
+
+# Task 4 — Preload case study results for instant access & memory optimization
+preloaded_results = preload_case_study_results()
+if "preloaded_scenarios" not in st.session_state:
+    st.session_state.preloaded_scenarios = preloaded_results
 
 # Initialize Session State
 if "fleet" not in st.session_state:
@@ -66,7 +86,19 @@ if "bau_baseline" not in st.session_state:
 if "last_run_time" not in st.session_state:
     st.session_state.last_run_time = None
 
-# Auto-compute BAU if fleet and predictor exist
+# Auto-populate baseline from preloaded scenarios if not set
+if st.session_state.last_pareto is None and "baseline" in preloaded_results:
+    b_data = preloaded_results["baseline"]
+    p_val = b_data["pareto"]
+    st.session_state.last_pareto = p_val.to_dict(orient="records") if hasattr(p_val, "to_dict") else p_val
+    st.session_state.selected_solution = b_data.get("knee")
+    if b_data.get("bau"):
+        st.session_state.bau_baseline = b_data.get("bau")
+    if b_data.get("history"):
+        st.session_state.last_history = b_data.get("history")
+    st.session_state.last_run_time = "Pre-computed (baseline)"
+
+# Auto-compute BAU if fleet and predictor exist and not preloaded
 if st.session_state.fleet and st.session_state.predictor and st.session_state.bau_baseline is None:
     try:
         st.session_state.bau_baseline = compute_bau_baseline(
@@ -77,49 +109,36 @@ if st.session_state.fleet and st.session_state.predictor and st.session_state.ba
     except Exception:
         pass
 
+# Task 3 — Deployment detection and badge
+is_streamlit_cloud = bool(os.environ.get('STREAMLIT_SHARING_MODE') or
+                          os.environ.get('IS_STREAMLIT_CLOUD'))
+is_render = bool(os.environ.get('RENDER'))
+
+if is_streamlit_cloud:
+    deploy_badge = "☁️ Live on Streamlit Cloud"
+elif is_render:
+    deploy_badge = "🌐 Live on Render"
+elif os.environ.get("SPACE_ID"):
+    deploy_badge = "🌐 Live on Hugging Face"
+else:
+    deploy_badge = "💻 Running locally"
+
 # Sidebar
 with st.sidebar:
     st.title("🚢 QGreenFleet")
     st.caption("Quantum-Inspired Green Fleet Optimization")
 
     st.markdown(
-        """
-        <div style="background-color: #1e3799; color: white; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center;">
+        f"""
+        <div style="background-color: #1e3799; color: white; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 8px; text-align: center;">
             SIH Problem #26138 · Egreen Quanta
+        </div>
+        <div style="background-color: {'#064e3b' if ('Live' in deploy_badge or 'Cloud' in deploy_badge) else '#1e293b'}; color: {'#34d399' if ('Live' in deploy_badge or 'Cloud' in deploy_badge) else '#94a3b8'}; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid {'#059669' if ('Live' in deploy_badge or 'Cloud' in deploy_badge) else '#334155'};">
+            {deploy_badge}
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    # Deployment status badge
-    is_hosted = bool(os.environ.get("RENDER"))
-    if is_hosted:
-        st.markdown(
-            """
-            <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
-                🌐 Live on Render
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    elif os.environ.get("SPACE_ID"):
-        st.markdown(
-            """
-            <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
-                🌐 Live on Hugging Face
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            """
-            <div style="background-color: #1e293b; color: #94a3b8; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #334155;">
-                💻 Local
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
 
     st.markdown("### System Status")
     # Fleet indicator
@@ -161,7 +180,7 @@ with col_head:
 with col_action:
     st.write("")
     st.write("")
-    if st.button("⚡ Quick Demo", type="primary", use_container_width=True, help="Jump straight to Optimize with pre-loaded baseline"):
+    if st.button("⚡ Launch Quick Demo", type="primary", use_container_width=True):
         st.switch_page("pages/3_Optimize.py")
 
 
@@ -223,10 +242,6 @@ if not st.session_state.last_pareto:
 else:
     st.success("✅ **Optimization Results In Memory**: Visit **5_Report** to inspect the Pareto trade-off and export the executive and technical PDF reports.")
 
-st.divider()
-st.markdown(
-    "<div style='text-align: center; color: #64748b; font-size: 13px; padding: 12px 0 24px 0; font-weight: 500;'>"
-    "QGreenFleet v0.3 · SIH #26138 · Egreen Quanta"
-    "</div>",
-    unsafe_allow_html=True,
-)
+st.markdown("---")
+st.caption("QGreenFleet v0.3 · SIH #26138 · Egreen Quanta · "
+           "Built with ❤️ for Clean & Green Technology")
