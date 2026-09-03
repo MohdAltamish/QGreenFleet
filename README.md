@@ -32,7 +32,7 @@ demand, schedules, and IMO CII emission rules.
 
 ---
 
-## 🧠 How It Works
+## 🧠 Architecture & Methodology
 
 ```
 📊 DATA INGESTION  →  🧠 TWO-STAGE SURROGATE  →  ⚛️ QUANTUM OPTIMIZER  →  🎯 DECISION SUPPORT
@@ -41,6 +41,15 @@ Voyage & weather       draft/weather adjust,     + rotation gates          Scena
 IMO emission factors   per-type calibration      QPSO: tunneling speeds    Dual PDF reports
                                                  NSGA-II Pareto ranking
 ```
+
+### 🏛️ System Architecture
+![System Architecture](flowchart/Archieture.drawio.png)
+
+### 🔄 Data Ingestion & Calibration Pipeline
+![Data Pipeline](flowchart/Data%20Pipeline.drawio.png)
+
+### ⚛️ Quantum-Inspired Optimization Flowchart (QIEA + QPSO)
+![Optimization Algorithm Workflow](flowchart/Algorithim.png)
 
 - **QIEA** (Quantum-Inspired Evolutionary Algorithm, Han & Kim 2002): discrete
   decisions (vessel–route assignment, fuel type, shore power) encoded as
@@ -52,6 +61,7 @@ IMO emission factors   per-type calibration      QPSO: tunneling speeds    Dual 
   bunkerability) handled by greedy repair + adaptive penalties.
 - All algorithms are **quantum-inspired and run on classical hardware** — no
   quantum computer required.
+
 
 ---
 
@@ -114,6 +124,7 @@ IMO Fourth GHG Study 2020 + FuelEU Annex II (emission factors — built in).
 qgreenfleet/
 ├── configs/            # YAML run configurations
 ├── data/               # raw/ (you download) · processed/ · synthetic/ (included)
+├── flowchart/          # system architecture, pipeline & algorithm flowcharts
 ├── src/
 │   ├── data/           # cleaning, synthetic fleet generation
 │   ├── prediction/     # fuel models + QPSO tuner + calibration
