@@ -1,0 +1,177 @@
+{
+  "objectives": {
+    "fuel_cost_usd": 11153792.980915291,
+    "ghg_wtw_tco2e": 51416.91947789871,
+    "opex_usd": 18761960.638730183
+  },
+  "feasible": true,
+  "violations": {
+    "demand_deficit": 0.0,
+    "cii_excess": 0.0,
+    "fuel_unavailable": 0.0,
+    "schedule_delay": 0.0
+  },
+  "vessels": [
+    {
+      "vessel_id": "V000",
+      "type": "tanker",
+      "route_id": "Unassigned",
+      "speed_kn": 16.3,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V001",
+      "type": "bulk",
+      "route_id": "Unassigned",
+      "speed_kn": 13.5,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V002",
+      "type": "tanker",
+      "route_id": "Unassigned",
+      "speed_kn": 15.1,
+      "fuel": "MEOH_GREEN",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V003",
+      "type": "bulk",
+      "route_id": "R1",
+      "speed_kn": 14.85,
+      "fuel": "HFO",
+      "shore_power": true
+    },
+    {
+      "vessel_id": "V004",
+      "type": "container",
+      "route_id": "R3",
+      "speed_kn": 9.07,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V005",
+      "type": "tanker",
+      "route_id": "R0",
+      "speed_kn": 16.38,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V006",
+      "type": "tanker",
+      "route_id": "R4",
+      "speed_kn": 13.62,
+      "fuel": "HFO",
+      "shore_power": true
+    },
+    {
+      "vessel_id": "V007",
+      "type": "tanker",
+      "route_id": "R4",
+      "speed_kn": 12.42,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V008",
+      "type": "container",
+      "route_id": "Unassigned",
+      "speed_kn": 20.2,
+      "fuel": "MEOH_GREEN",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V009",
+      "type": "bulk",
+      "route_id": "Unassigned",
+      "speed_kn": 14.3,
+      "fuel": "LNG_DIESEL",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V010",
+      "type": "container",
+      "route_id": "Unassigned",
+      "speed_kn": 20.4,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V011",
+      "type": "tanker",
+      "route_id": "Unassigned",
+      "speed_kn": 14.0,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V012",
+      "type": "bulk",
+      "route_id": "R1",
+      "speed_kn": 11.84,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V013",
+      "type": "tanker",
+      "route_id": "R0",
+      "speed_kn": 16.17,
+      "fuel": "LNG_DIESEL",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V014",
+      "type": "bulk",
+      "route_id": "R0",
+      "speed_kn": 11.4,
+      "fuel": "LNG_DIESEL",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V015",
+      "type": "container",
+      "route_id": "R0",
+      "speed_kn": 18.87,
+      "fuel": "MEOH_GREEN",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V016",
+      "type": "bulk",
+      "route_id": "R3",
+      "speed_kn": 12.94,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V017",
+      "type": "container",
+      "route_id": "R4",
+      "speed_kn": 16.6,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V018",
+      "type": "tanker",
+      "route_id": "Unassigned",
+      "speed_kn": 14.7,
+      "fuel": "HFO",
+      "shore_power": false
+    },
+    {
+      "vessel_id": "V019",
+      "type": "bulk",
+      "route_id": "R1",
+      "speed_kn": 10.47,
+      "fuel": "HFO",
+      "shore_power": false
+    }
+  ],
+  "solution_id": "sol_000"
+}

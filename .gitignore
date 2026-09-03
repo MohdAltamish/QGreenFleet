@@ -34,8 +34,7 @@ models/*.pkl
 models/*.pt
 
 # Outputs
-outputs/
-charts/
+outputs/*
 
 # Jupyter
 .ipynb_checkpoints/
@@ -47,3 +46,22 @@ charts/
 .cache/
 .pytest_cache/
 .streamlit/credentials.toml
+.streamlit/secrets.toml
+
+# Hugging Face deployment exceptions
+!models/best.pkl
+!models/best_meta.json
+!models/mrv_best.pkl
+!models/mrv_best_meta.json
+!data/synthetic/
+!data/synthetic/**
+!outputs/case_study/
+!outputs/case_study/**
+!outputs/pareto.csv
+!outputs/prediction_report.md
+!outputs/benchmark_results.csv
+!outputs/calibration_check.png
+!charts/
+!charts/**
+!docs/samples/
+!docs/samples/**

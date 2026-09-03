@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import time
 import numpy as np
@@ -24,6 +25,9 @@ ensure_session_state()
 st.title("⚛️ Fleet Deployment & Speed Optimization")
 st.markdown("Coupled Quantum-Inspired Evolutionary Algorithm (QIEA) with Quantum-behaved Particle Swarm Optimization (QPSO).")
 
+# Top banner for Hugging Face / Demo execution
+st.info("⚡ Demo mode: pre-computed results load instantly. Live optimization available but takes ~20 min on hosted CPU.")
+
 if not st.session_state.fleet:
     st.warning("⚠️ No active fleet loaded. Please visit **1_Data** to upload or synthesize a fleet first.")
     st.stop()
@@ -32,9 +36,76 @@ vessels = st.session_state.fleet["vessels"]
 routes = st.session_state.fleet["routes"]
 
 # ===================================================================== #
-#  Optimization Configuration Expander                                   #
+#  DEFAULT: Offline Demo Loader — Load Pre-Computed Case Study Scenarios#
 # ===================================================================== #
-with st.expander("🛠️ Scenario Parameters & Hyperparameters", expanded=True):
+case_study_dir = _PROJECT_ROOT / "outputs" / "case_study"
+default_scenarios = ["baseline", "carbon_100", "cii_tightened", "meoh_subsidized"]
+
+avail_scenarios = []
+if case_study_dir.exists():
+    for name in default_scenarios:
+        if (case_study_dir / name / "pareto.csv").exists():
+            avail_scenarios.append(name)
+    # Add any other scenarios present
+    for d in sorted(case_study_dir.iterdir()):
+        if d.is_dir() and d.name not in avail_scenarios and (d / "pareto.csv").exists():
+            avail_scenarios.append(d.name)
+
+if not avail_scenarios and (_PROJECT_ROOT / "outputs" / "pareto.csv").exists():
+    avail_scenarios.append("default (outputs/pareto.csv)")
+
+def _load_scenario(chosen: str):
+    if chosen == "default (outputs/pareto.csv)":
+        df_prev = pd.read_csv(_PROJECT_ROOT / "outputs" / "pareto.csv")
+        st.session_state.last_pareto = df_prev.to_dict(orient="records")
+        knee_s, _ = _find_knee_solution(st.session_state.last_pareto)
+        st.session_state.selected_solution = knee_s
+    else:
+        s_dir = case_study_dir / chosen
+        df_p = pd.read_csv(s_dir / "pareto.csv")
+        st.session_state.last_pareto = df_p.to_dict(orient="records")
+
+        if (s_dir / "solution_knee.json").exists():
+            st.session_state.selected_solution = json.loads((s_dir / "solution_knee.json").read_text(encoding="utf-8"))
+        else:
+            knee_s, _ = _find_knee_solution(st.session_state.last_pareto)
+            st.session_state.selected_solution = knee_s
+
+        if (s_dir / "bau_baseline.json").exists():
+            st.session_state.bau_baseline = json.loads((s_dir / "bau_baseline.json").read_text(encoding="utf-8"))
+
+        if (s_dir / "history.json").exists():
+            st.session_state.last_history = json.loads((s_dir / "history.json").read_text(encoding="utf-8"))
+
+    st.session_state.last_run_time = "Pre-computed"
+
+# Auto-load baseline if nothing loaded yet
+if st.session_state.last_pareto is None and avail_scenarios:
+    _load_scenario(avail_scenarios[0])
+
+if avail_scenarios:
+    st.subheader("📂 Load Previous Results (Instant)")
+    c_scen_sel, c_scen_btn = st.columns([3, 1])
+    with c_scen_sel:
+        chosen_scen = st.selectbox(
+            "Select Scenario:",
+            options=avail_scenarios,
+            index=0,
+            help="Choose from pre-computed policy scenarios"
+        )
+    with c_scen_btn:
+        st.write("")
+        load_scen_btn = st.button("Load Scenario", use_container_width=True, type="primary")
+
+    if load_scen_btn and chosen_scen:
+        _load_scenario(chosen_scen)
+        st.success(f"Loaded '{chosen_scen}'! Pareto front, baseline, and knee solution are ready.")
+        st.rerun()
+
+# ===================================================================== #
+#  Live Optimization Configuration (Optional live run)                  #
+# ===================================================================== #
+with st.expander("🛠️ Live Optimization Parameters & Hyperparameters", expanded=False):
     col_p1, col_p2 = st.columns(2)
 
     with col_p1:
@@ -59,10 +130,7 @@ with st.expander("🛠️ Scenario Parameters & Hyperparameters", expanded=True)
         "NH3_GREEN": float(nh3_price),
     }
 
-# ===================================================================== #
-#  Pre-Execution BAU Baseline Evaluation                                 #
-# ===================================================================== #
-# Always compute and cache the Business-As-Usual (BAU) baseline
+# Pre-Execution BAU Baseline Evaluation for live runs
 if st.session_state.bau_baseline is None or st.button("Recalculate BAU Baseline"):
     with st.spinner("Evaluating Business-As-Usual fleet baseline..."):
         st.session_state.bau_baseline = compute_bau_baseline(
@@ -73,55 +141,6 @@ if st.session_state.bau_baseline is None or st.button("Recalculate BAU Baseline"
             carbon_price=carbon_tax,
         )
 
-# ===================================================================== #
-#  Offline Demo Loader: Load Pre-Computed Case Study Scenarios          #
-# ===================================================================== #
-case_study_dir = _PROJECT_ROOT / "outputs" / "case_study"
-avail_scenarios = []
-if case_study_dir.exists():
-    for d in sorted(case_study_dir.iterdir()):
-        if d.is_dir() and (d / "pareto.csv").exists():
-            avail_scenarios.append(d.name)
-
-if not avail_scenarios and (_PROJECT_ROOT / "outputs" / "pareto.csv").exists():
-    avail_scenarios.append("default (outputs/pareto.csv)")
-
-if avail_scenarios:
-    st.markdown("#### 📂 Offline Demo: Load Pre-Computed Optimization Run")
-    c_scen_sel, c_scen_btn = st.columns([3, 1])
-    with c_scen_sel:
-        chosen_scen = st.selectbox("Choose pre-computed case study scenario:", options=avail_scenarios)
-    with c_scen_btn:
-        st.write("")
-        load_scen_btn = st.button("Load Run", use_container_width=True)
-
-    if load_scen_btn and chosen_scen:
-        if chosen_scen == "default (outputs/pareto.csv)":
-            df_prev = pd.read_csv(_PROJECT_ROOT / "outputs" / "pareto.csv")
-            st.session_state.last_pareto = df_prev.to_dict(orient="records")
-            knee_s, _ = _find_knee_solution(st.session_state.last_pareto)
-            st.session_state.selected_solution = knee_s
-            st.success("Loaded default Pareto front!")
-        else:
-            s_dir = case_study_dir / chosen_scen
-            df_p = pd.read_csv(s_dir / "pareto.csv")
-            st.session_state.last_pareto = df_p.to_dict(orient="records")
-
-            if (s_dir / "solution_knee.json").exists():
-                st.session_state.selected_solution = json.loads((s_dir / "solution_knee.json").read_text(encoding="utf-8"))
-            else:
-                knee_s, _ = _find_knee_solution(st.session_state.last_pareto)
-                st.session_state.selected_solution = knee_s
-
-            if (s_dir / "bau_baseline.json").exists():
-                st.session_state.bau_baseline = json.loads((s_dir / "bau_baseline.json").read_text(encoding="utf-8"))
-
-            if (s_dir / "history.json").exists():
-                st.session_state.last_history = json.loads((s_dir / "history.json").read_text(encoding="utf-8"))
-
-            st.session_state.last_run_time = "Pre-computed"
-            st.success(f"Successfully loaded '{chosen_scen}'! Fully populated Pareto front, BAU baseline, and recommended knee solution.")
-            st.rerun()
 
 # ===================================================================== #
 #  Run Optimization Button & Progress Tracking                           #

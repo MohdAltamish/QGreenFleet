@@ -10,6 +10,7 @@ Usage::
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import time
 import streamlit as st
@@ -86,6 +87,26 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
+
+    # Deployment status badge
+    if os.environ.get("SPACE_ID"):
+        st.markdown(
+            """
+            <div style="background-color: #064e3b; color: #34d399; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #059669;">
+                🌐 Live on Hugging Face
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            """
+            <div style="background-color: #1e293b; color: #94a3b8; padding: 6px 12px; border-radius: 4px; font-weight: bold; font-size: 11px; margin-bottom: 12px; text-align: center; border: 1px solid #334155;">
+                💻 Running locally
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     st.markdown("### System Status")
     # Fleet indicator

@@ -1,3 +1,14 @@
+---
+title: QGreenFleet
+emoji: 🚢
+colorFrom: blue
+colorTo: green
+sdk: streamlit
+sdk_version: 1.28.2
+app_file: ui/app.py
+pinned: true
+---
+
 # 🚢 QGreenFleet
 
 **Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization**

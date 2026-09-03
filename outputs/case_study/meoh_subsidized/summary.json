@@ -1,0 +1,29 @@
+{
+  "scenario_name": "meoh_subsidized",
+  "elapsed_seconds": 488.45,
+  "bau_kpis": {
+    "fuel_cost_usd": 3168374.3416648153,
+    "ghg_wtw_tco2e": 17343.583657831918,
+    "opex_usd": 5546774.885298476
+  },
+  "knee_kpis": {
+    "fuel_cost_usd": 10655265.861382352,
+    "ghg_wtw_tco2e": 53439.88089212491,
+    "opex_usd": 17760105.016223058
+  },
+  "deltas": {
+    "fuel_cost_delta": 7486891.519717537,
+    "fuel_cost_pct": 236.30072435770217,
+    "ghg_delta": 36096.297234292986,
+    "ghg_pct": 208.12479096840417,
+    "opex_delta": 12213330.130924582,
+    "opex_pct": 220.1879539639434
+  },
+  "fuel_mix_pct": {
+    "HFO": 65.0,
+    "LNG_DIESEL": 30.0,
+    "MEOH_GREEN": 5.0
+  },
+  "fuel_switches_count": 7,
+  "avg_speed_delta_kn": -1.87
+}

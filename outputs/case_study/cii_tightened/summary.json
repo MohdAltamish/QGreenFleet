@@ -1,0 +1,29 @@
+{
+  "scenario_name": "cii_tightened",
+  "elapsed_seconds": 355.34,
+  "bau_kpis": {
+    "fuel_cost_usd": 3168374.3416648153,
+    "ghg_wtw_tco2e": 17343.583657831918,
+    "opex_usd": 5546774.885298476
+  },
+  "knee_kpis": {
+    "fuel_cost_usd": 11153792.980915291,
+    "ghg_wtw_tco2e": 51416.91947789871,
+    "opex_usd": 18761960.638730183
+  },
+  "deltas": {
+    "fuel_cost_delta": 7985418.639250476,
+    "fuel_cost_pct": 252.0352009622245,
+    "ghg_delta": 34073.335820066786,
+    "ghg_pct": 196.46075743221695,
+    "opex_delta": 13215185.753431708,
+    "opex_pct": 238.2499024515683
+  },
+  "fuel_mix_pct": {
+    "HFO": 70.0,
+    "MEOH_GREEN": 15.0,
+    "LNG_DIESEL": 15.0
+  },
+  "fuel_switches_count": 6,
+  "avg_speed_delta_kn": -2.21
+}
