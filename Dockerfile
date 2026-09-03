@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libcairo2 \
+    libgdk-pixbuf2.0-0 \
+    libglib2.0-0 \
     libffi-dev \
     shared-mime-info \
     fonts-dejavu-core \
@@ -19,8 +21,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app
 COPY . .
 
-# Ensure /app is in PYTHONPATH
+# Ensure /app is in PYTHONPATH and configure headless Streamlit
 ENV PYTHONPATH="/app:${PYTHONPATH}"
+ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+ENV STREAMLIT_SERVER_HEADLESS=true
 
 # Expose port
 EXPOSE 7860

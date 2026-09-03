@@ -6,5 +6,5 @@ services:
     envVars:
       - key: PORT
         value: 7860
-    healthCheckPath: /
+    healthCheckPath: /_stcore/health
     autoDeploy: true
