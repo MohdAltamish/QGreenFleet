@@ -34,16 +34,11 @@ demand, schedules, and IMO CII emission rules.
 
 ## 🧠 Architecture & Methodology
 
-```
-📊 DATA INGESTION  →  🧠 TWO-STAGE SURROGATE  →  ⚛️ QUANTUM OPTIMIZER  →  🎯 DECISION SUPPORT
-EU MRV (real ships)    MRV fuel model +          QIEA: Q-bit encoding      Pareto menu of plans
-Voyage & weather       draft/weather adjust,     + rotation gates          Scenario & carbon sweeps
-IMO emission factors   per-type calibration      QPSO: tunneling speeds    Dual PDF reports
-                                                 NSGA-II Pareto ranking
-```
+### 🗺️ End-to-End System Pipeline
+![End-to-End System Pipeline](flowchart/model.drawio.png)
 
 ### 🏛️ System Architecture
-![System Architecture](flowchart/Archieture.drawio.png)
+![System Architecture](flowchart/Archicture.png)
 
 ### 🔄 Data Ingestion & Calibration Pipeline
 ![Data Pipeline](flowchart/Data%20Pipeline.drawio.png)
