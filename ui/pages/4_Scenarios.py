@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 import time
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.emissions.factors import OPTIMIZER_FUELS
 from src.optimization.qiea import run as run_qiea
@@ -14,9 +19,8 @@ from ui.utils.chart_helpers import carbon_sweep, fuel_mix_bar, ghg_waterfall
 from ui.utils.fleet_loader import ensure_session_state
 from ui.utils.report_data import _find_knee_solution
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
 st.set_page_config(page_title="QGreenFleet | Scenarios", page_icon="🧭", layout="wide")
+
 
 ensure_session_state()
 

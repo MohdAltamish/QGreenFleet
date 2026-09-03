@@ -19,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy app
 COPY . .
 
+# Ensure /app is in PYTHONPATH
+ENV PYTHONPATH="/app:${PYTHONPATH}"
+
 # Expose port
 EXPOSE 7860
 

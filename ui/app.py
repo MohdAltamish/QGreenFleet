@@ -12,14 +12,17 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import sys
 import time
 import streamlit as st
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.prediction.predictor import FuelPredictor
 from ui.utils.chart_helpers import system_flow_diagram
 from ui.utils.fleet_loader import compute_bau_baseline, load_fleet
-
-_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 # Page configuration
 st.set_page_config(

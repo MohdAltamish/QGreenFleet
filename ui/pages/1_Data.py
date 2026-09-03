@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import sys
 import folium
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
 from src.data.generate_synthetic import generate
 from ui.utils.fleet_loader import compute_bau_baseline, ensure_session_state, load_fleet
+
 
 st.set_page_config(page_title="QGreenFleet | Fleet Data", page_icon="🚢", layout="wide")
 

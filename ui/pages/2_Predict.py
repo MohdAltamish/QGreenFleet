@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 import pandas as pd
 import streamlit as st
+
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 from src.prediction.predictor import FuelPredictor
 from ui.utils.chart_helpers import speed_fuel_curve
 from ui.utils.fleet_loader import ensure_session_state
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 st.set_page_config(page_title="QGreenFleet | Fuel Predictor", page_icon="⛽", layout="wide")
 
