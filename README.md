@@ -176,6 +176,71 @@ emissions math, prediction, optimization, benchmarking, and report generation.
 
 ---
 
+## 🔬 Research & References
+
+### 📐 Core Algorithms
+
+| Reference | What we used it for |
+|---|---|
+| Han, K.-H. & Kim, J.-H. (2002). *Quantum-inspired evolutionary algorithm for a class of combinatorial optimization.* IEEE Trans. Evolutionary Computation, 6(6), 580–593. | Foundation of our QIEA: Q-bit encoding, rotation gate update rule, lookup table for Δθ direction |
+| Sun, J. et al. (2004). *Particle swarm optimization with particles having quantum behavior.* IEEE CEC 2004. | Foundation of our QPSO: delta-potential-well position update, mean-best attractor, β decay |
+| Deb, K. et al. (2002). *A fast and elitist multiobjective genetic algorithm: NSGA-II.* IEEE Trans. Evolutionary Computation, 6(2), 182–197. | Pareto ranking, crowding distance, archive management |
+| Psaraftis, H. & Kontovas, C. (2013). *Speed models for energy-efficient maritime transportation.* Transportation Research Part C, 26, 250–264. | Speed-fuel relationship, slow steaming economics, admiralty cubic law |
+| Yan, R. et al. (2021). *Machine learning for vessel fuel consumption prediction.* Transportation Research Part E, 144. | Survey of ML approaches for ship fuel prediction, feature engineering guidance |
+
+---
+
+### 📊 Datasets Used
+
+| Dataset | Source | Used for | Size |
+|---|---|---|---|
+| **EU MRV THETIS** | [mrv.emsa.europa.eu](https://mrv.emsa.europa.eu/#public/emission-report) | Real-world calibration of fuel predictions per vessel type | 21,622 ship-years (2022–2025) |
+| **Ship Performance Clustering Dataset** | [Kaggle](https://www.kaggle.com/datasets/jeleeladekunlefijabi/ship-performance-clustering-dataset) | Training the speed/load/weather → fuel response surface | 2,736 voyage records, 18 features |
+| **IMO Fourth GHG Study 2020** | [imo.org](https://www.imo.org/en/OurWork/Environment/Pages/Fourth-IMO-Greenhouse-Gas-Study-2020.aspx) | Well-to-Wake emission factors (Cf, CH₄, N₂O baselines) per fuel type | Built into `src/emissions/factors.py` |
+| **FuelEU Maritime Reg. (EU) 2023/1805** | [eur-lex.europa.eu](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1805) | Green fuel WtW factors (RFNBO pathways), GHG intensity limits | Annex II — built into emissions library |
+| **Synthetic Fleet Generator** | Generated (`src/data/generate_synthetic.py`) | Scalability benchmarks (5–100 vessels), calibrated to MRV statistics | Configurable, committed to `data/synthetic/` |
+
+---
+
+### 📏 Emission Standards & Regulations
+
+| Standard | Source | Role in project |
+|---|---|---|
+| **IMO CII (Carbon Intensity Indicator)** | IMO MEPC.337(76) | Constraint C4: attained CII ≤ required band per vessel |
+| **IMO EEXI** | IMO MEPC.333(76) | Technical efficiency baseline for vessel classification |
+| **EU ETS (Emissions Trading System)** | EU Directive 2023/959 | Carbon price scenario module ($0–$200/t sweep) |
+| **FuelEU Maritime** | Reg. (EU) 2023/1805 | WtW GHG intensity limits (−2% by 2025, −6% by 2030) |
+| **GWP100 values** | IPCC AR5 (2014) | CH₄=28, N₂O=265 — used in all CO₂e calculations |
+
+---
+
+### 🔗 Additional Research
+
+| Paper / Resource | Relevance |
+|---|---|
+| Fagerholt, K. et al. — Fleet deployment and speed optimization research | Baseline formulation for maritime fleet MINLP |
+| Stopford, M. (2009). *Maritime Economics* (3rd ed.) | Admiralty formula, vessel operating cost structure |
+| MAN Energy Solutions — Engine SFOC data | SFOC = 190 g/kWh used for fuel target derivation |
+| Wärtsilä — Alternative fuel technical guides | LNG methane slip values, engine cycle comparison |
+| IMO (2020). *Fourth IMO GHG Study* — Full report PDF | Complete emission factor tables, fleet composition data |
+| Pinuto (2022). *Ship Fuel & Emission Analysis* — [Kaggle notebook](https://www.kaggle.com/code/pinuto/ship-fuel-emission-analysis-and-predictions/notebook) | EDA validation of speed-fuel relationship and feature importance |
+
+---
+
+### 🌐 Open Data Sources (not used but recommended for future work)
+
+| Source | What it contains | Link |
+|---|---|---|
+| MarineCadastre AIS | US vessel tracking (speed, position, timestamp) | [marinecadastre.gov](https://marinecadastre.gov/ais/) |
+| Danish Maritime Authority AIS | Free historical AIS data | [dma.dk](https://www.dma.dk/safety-at-sea/navigational-information/ais-data) |
+| Copernicus Marine Service | Ocean weather (wind, waves, currents) | [marine.copernicus.eu](https://marine.copernicus.eu) |
+| UCI Propulsion Plants Dataset | Simulated gas turbine sensor data | [UCI ML Repository](https://archive.ics.uci.edu/dataset/316) |
+| ShipDataCenter | Port calls, vessel specs | [shipdatacenter.com](https://www.shipdatacenter.com) |
+
+> **Note on data availability:** Real voyage-level fuel telemetry (speed + fuel logged per hour per ship) is proprietary and held under NDA by shipping companies. Our approach — training on granular operational data and calibrating against verified EU MRV records — is the standard methodology in academic literature when proprietary data is unavailable.
+
+---
+
 ## 👥 Team & Credits
 
 Built for **Smart India Hackathon — Problem #26138** (Egreen Quanta).
