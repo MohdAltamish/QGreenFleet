@@ -1,4 +1,4 @@
-.PHONY: help test data train optimize benchmark demo all
+.PHONY: help test data train optimize benchmark demo api frontend frontend-install frontend-build all
 
 PYTHON := python3
 
@@ -12,6 +12,8 @@ help:
 	@echo "  make optimize   Execute baseline green fleet optimization"
 	@echo "  make benchmark  Execute multi-algorithm benchmarking suite (S, M, L, XL)"
 	@echo "  make demo       Launch interactive Streamlit decision support platform"
+	@echo "  make api        Serve the FastAPI backend on :8000 (React frontend)"
+	@echo "  make frontend   Launch the React dashboard dev server on :5173"
 	@echo "  make all        Run full pipeline end-to-end"
 
 test:
@@ -32,5 +34,17 @@ benchmark:
 
 demo:
 	$(PYTHON) -m streamlit run ui/app.py
+
+api:
+	$(PYTHON) -m uvicorn src.api.main:app --reload --port 8000
+
+frontend-install:
+	cd frontend && npm install
+
+frontend: frontend-install
+	cd frontend && npm run dev
+
+frontend-build: frontend-install
+	cd frontend && npm run build
 
 all: test data train optimize benchmark

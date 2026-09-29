@@ -101,6 +101,57 @@ IMO Fourth GHG Study 2020 + FuelEU Annex II (emission factors — built in).
 
 ---
 
+## 🖥 User Interfaces
+
+QGreenFleet ships two front ends over the same engine — pick either.
+
+### Streamlit app (batteries included)
+
+```bash
+make demo                    # http://localhost:8501
+```
+
+### React dashboard + REST API
+
+```bash
+make api                     # terminal 1 — FastAPI on :8000, docs at /docs
+make frontend                # terminal 2 — React dev server on :5173
+```
+
+Exact copy-paste commands, ports and troubleshooting: **[RUN.md](RUN.md)**.
+
+The React dashboard ([`frontend/`](frontend/)) is a Vite + React 19 SPA that
+consumes the FastAPI layer in [`src/api/`](src/api/) — nothing is duplicated, and
+both interfaces read the same models, fleets and case-study artifacts. See
+[`frontend/README.md`](frontend/README.md) for the full route-to-endpoint map.
+
+| Route | View |
+|---|---|
+| `/` | Headline KPIs vs business-as-usual, fuel mix, platform status |
+| `/fleet` | Vessel & route catalogue; load, upload or synthesise a fleet |
+| `/predict` | Single-point inference, speed–fuel curves, model registry |
+| `/optimize` | Live QIEA+QPSO run with generation-by-generation progress |
+| `/scenarios` | The four pre-computed policy scenarios + carbon-price sweep |
+| `/benchmark` | QIEA vs GA / MOPSO / SA across S, M, L and XL instances |
+| `/reports` | PDF exports, the figure library, emission factor reference |
+
+Key endpoints (full OpenAPI schema at `http://localhost:8000/docs`):
+
+| Method & path | Purpose |
+|---|---|
+| `GET /api/health` · `GET /api/overview` | Deployment status and landing KPIs |
+| `GET /api/fleet` · `POST /api/fleet/{load,generate,upload-file}` | Fleet catalogue and management |
+| `POST /api/predict` · `POST /api/predict/curve` | Fuel surrogate inference |
+| `POST /api/optimize` → `GET /api/optimize/{job_id}` | Start and poll a live optimisation run |
+| `GET /api/scenarios/{name}` · `GET /api/carbon-sweep` | Pre-computed policy results |
+| `GET /api/benchmark` · `GET /api/reports/{key}` | Benchmark table and PDF exports |
+
+Live optimisation runs on a background thread and is polled by job id, so a long
+search never blocks a request; `DELETE /api/optimize/{job_id}` stops one at the
+next generation boundary.
+
+---
+
 ## 📦 Deliverables Map (SIH #26138)
 
 | # | Expected Deliverable | Implementation | Evidence |
@@ -108,7 +159,7 @@ IMO Fourth GHG Study 2020 + FuelEU Annex II (emission factors — built in).
 | 1 | Fuel consumption prediction model | Two-stage surrogate: MRV real-data model + voyage adjustment, QPSO-tuned XGBoost, per-type calibration | [outputs/prediction_report.md](outputs/prediction_report.md), [outputs/mrv_model_report.md](outputs/mrv_model_report.md), [outputs/calibration_check.png](outputs/calibration_check.png) |
 | 2 | Mathematical optimization formulation | Multi-objective MINLP: 4 decision variable families, 3 objectives, 6 constraint classes | [docs/mathematical-model.md](docs/mathematical-model.md), [src/optimization/](src/optimization/) |
 | 3 | Quantum-inspired optimization algorithm | QIEA (Q-bit rotation gates) + QPSO (speeds) + NSGA-II, from scratch in NumPy | [docs/algorithms.md](docs/algorithms.md), [src/optimization/qiea.py](src/optimization/qiea.py) |
-| 4 | Software platform / DSS | 5-page Streamlit app: data, prediction, optimization, scenarios, dual PDF reports | [ui/](ui/), [docs/samples/](docs/samples/) |
+| 4 | Software platform / DSS | Two front ends over one engine: 5-page Streamlit app, plus a React dashboard on a FastAPI REST layer | [ui/](ui/), [frontend/](frontend/), [src/api/](src/api/), [docs/samples/](docs/samples/) |
 | 5 | Demonstration | 4-scenario policy case study + S/M/L/XL benchmarks vs GA/MOPSO/SA + implementation guide | [docs/case-study-results.md](docs/case-study-results.md), [outputs/benchmark_report.md](outputs/benchmark_report.md), [docs/implementation-guide.md](docs/implementation-guide.md) |
 
 ---
@@ -126,8 +177,10 @@ qgreenfleet/
 │   ├── optimization/   # QIEA, QPSO, Pareto, constraints, objectives
 │   ├── emissions/      # IMO/FuelEU factors, CII rules
 │   ├── benchmark/      # GA/MOPSO/SA baselines, HV/IGD metrics
-│   └── case_study/     # policy scenario runner
+│   ├── case_study/     # policy scenario runner
+│   └── api/            # FastAPI backend for the React dashboard
 ├── ui/                 # Streamlit app (5 pages, chart library, PDF export)
+├── frontend/           # React dashboard (Vite + React 19) on the FastAPI layer
 ├── outputs/            # generated results and charts
 ├── docs/               # full documentation + sample PDFs
 ├── tests/              # 84+ pytest tests
@@ -189,9 +242,14 @@ All project documentation is organized by domain and directly linked below:
 
 ## 🛠 Tech Stack
 
-Python 3.11 · NumPy · pandas · scikit-learn · XGBoost · Streamlit · Plotly ·
-Folium · WeasyPrint · pytest — quantum-inspired algorithms implemented from
-scratch (no external metaheuristic frameworks in the core engine).
+**Engine & API** — Python 3.11 · NumPy · pandas · scikit-learn · XGBoost ·
+FastAPI · Uvicorn · pytest
+
+**Interfaces** — Streamlit · Plotly · Folium · WeasyPrint (Streamlit app) ·
+React 19 · Vite · React Router with hand-rolled SVG charts (React dashboard)
+
+Quantum-inspired algorithms are implemented from scratch — no external
+metaheuristic frameworks in the core engine.
 
 ---
 

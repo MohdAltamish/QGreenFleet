@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <script>
+      // Stamp the saved theme before first paint so there is no flash; dark by default.
+      try {
+        var t = localStorage.getItem('qgf-theme') || 'dark'
+        if (t !== 'system') document.documentElement.setAttribute('data-theme', t)
+      } catch (e) {
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    </script>
+    <meta
+      name="description"
+      content="QGreenFleet — quantum-inspired fuel prediction and green fleet deployment optimization (SIH #26138)."
+    />
+    <title>QGreenFleet</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
