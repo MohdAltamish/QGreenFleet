@@ -25,48 +25,73 @@ from src.optimization.pareto import dominates, fast_nondominated_sort, update_ar
 from src.optimization.qpso import update_speeds
 
 
+def _objective_matrix(solutions: Sequence[Solution]) -> np.ndarray:
+    """Unpenalised [Z1, Z2, Z3] rows (falls back to penalised if raw is absent)."""
+    rows = [
+        s.raw_objectives if s.raw_objectives is not None else s.objectives
+        for s in solutions
+        if s.objectives is not None
+    ]
+    return np.array(rows, dtype=float) if rows else np.empty((0, 3))
+
+
+def hypervolume_bounds(solutions: Sequence[Solution]) -> tuple[np.ndarray, np.ndarray]:
+    """Fixed normalisation box for a run: ideal = 0, reference = 1.1 x worst.
+
+    Called once on the first evaluated generation (feasible solutions when any
+    exist). Keeping the box fixed makes hypervolume comparable across
+    generations — an elitist archive then never loses hypervolume.
+    """
+    feasible = [s for s in solutions if s.feasible] or list(solutions)
+    objs = _objective_matrix(feasible)
+    if objs.size == 0:
+        return np.zeros(3), np.ones(3)
+    ref = 1.1 * np.max(objs, axis=0)
+    return np.zeros(objs.shape[1]), np.maximum(ref, 1e-6)
+
+
 def compute_hypervolume(
     archive: list[Solution],
     reference_point: np.ndarray | None = None,
+    ideal_point: np.ndarray | None = None,
 ) -> float:
-    """Compute hypervolume metric for the non-dominated archive.
+    """Hypervolume of the archive inside the box [ideal_point, reference_point].
 
-    Uses normalized coordinate space relative to the empirical nadir point.
+    Pass the box from hypervolume_bounds() to track a run. Without one, the box
+    is derived from the archive itself — only meaningful for a single snapshot,
+    since it moves as the archive changes.
 
     Args:
         archive: Non-dominated Pareto archive.
-        reference_point: Upper reference bounding box point.
+        reference_point: Upper corner of the normalisation box.
+        ideal_point: Lower corner of the normalisation box.
 
     Returns:
-        Scalar hypervolume metric.
+        Fraction of the box dominated by the archive, in [0, 1].
     """
-    valid = [s for s in archive if s.objectives is not None]
-    if not valid:
+    objs = _objective_matrix(archive)
+    if objs.size == 0:
         return 0.0
 
-    objs = np.array([s.objectives for s in valid])
     if reference_point is None:
         ref = 1.1 * np.max(objs, axis=0)
+        ideal = np.min(objs, axis=0) if ideal_point is None else np.asarray(ideal_point, dtype=float)
     else:
-        ref = reference_point
+        ref = np.asarray(reference_point, dtype=float)
+        ideal = np.zeros_like(ref) if ideal_point is None else np.asarray(ideal_point, dtype=float)
 
-    # Ensure ref strictly dominates all points
-    ref = np.maximum(ref, np.max(objs, axis=0) * 1.01 + 1.0)
-    ideal = np.min(objs, axis=0)
+    spread = np.maximum(1e-9, ref - ideal)
+    # Points outside the box contribute only the part inside it.
+    norm_objs = np.clip((objs - ideal) / spread, 0.0, 1.0)
 
-    spread = np.maximum(1e-6, ref - ideal)
-    norm_objs = (objs - ideal) / spread
-
-    # Approximate 3D hypervolume via Monte Carlo sampling (5000 points)
-    # fast and exact in expectation
+    # Monte Carlo estimate with a fixed sample set, so equal archives always
+    # score equally and a growing dominated region never scores lower.
     rng = np.random.default_rng(123)
-    samples = rng.uniform(0.0, 1.0, size=(5000, objs.shape[1]))
+    samples = rng.uniform(0.0, 1.0, size=(20000, objs.shape[1]))
 
-    # A sample is dominated if it is >= at least one solution in all dimensions
     is_dominated = np.zeros(len(samples), dtype=bool)
     for p in norm_objs:
-        p_dominates_sample = np.all(samples >= p, axis=1)
-        is_dominated |= p_dominates_sample
+        is_dominated |= np.all(samples >= p, axis=1)
 
     return float(np.mean(is_dominated))
 
@@ -226,6 +251,7 @@ def run(
     pbest_objs = np.full((pop_size, 3), np.inf)
 
     archive: list[Solution] = []
+    hv_box: tuple[np.ndarray, np.ndarray] | None = None
     history: dict[str, list[Any]] = {
         "generation": [],
         "hypervolume": [],
@@ -273,6 +299,8 @@ def run(
 
         # 4. Update Pareto archive
         archive = update_archive(archive, population, max_size=archive_max)
+        if hv_box is None:
+            hv_box = hypervolume_bounds(population)
 
         # 5. QIEA quantum rotation gate updates toward archive leaders
         # Crowding-weighted selection: prefer leaders with high crowding distance for diversity.
@@ -323,13 +351,13 @@ def run(
             population[i].speeds = new_speeds[i]
 
         # Metric logging
-        hv = compute_hypervolume(archive)
+        hv = compute_hypervolume(archive, reference_point=hv_box[1], ideal_point=hv_box[0])
         history["generation"].append(g)
         history["hypervolume"].append(hv)
         history["feasible_count"].append(feasible_count)
 
         if archive:
-            arch_objs = np.array([s.objectives for s in archive if s.objectives is not None])
+            arch_objs = _objective_matrix(archive)
             history["best_Z1"].append(float(np.min(arch_objs[:, 0])))
             history["best_Z2"].append(float(np.min(arch_objs[:, 1])))
             history["best_Z3"].append(float(np.min(arch_objs[:, 2])))
@@ -346,7 +374,5 @@ def run(
         print("[WARNING] No feasible solutions found in archive; returning best penalty population solution.")
         best_pop = min(population, key=lambda s: np.sum(s.objectives) if s.objectives is not None else 1e9)
         archive = [best_pop]
-
-    return archive, history
 
     return archive, history

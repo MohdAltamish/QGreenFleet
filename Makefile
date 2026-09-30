@@ -1,20 +1,23 @@
-.PHONY: help test data train optimize benchmark demo api frontend frontend-install frontend-build all
+.PHONY: help test data train optimize optimize-fast benchmark demo api frontend frontend-install frontend-build dev all
 
-PYTHON := python3
+# Use the project virtualenv when it exists, so `make api` works without activating it.
+PYTHON ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 
 help:
-	@echo "QGreenFleet (SIH #26138) Command Center"
+	@echo "QGreenFleet (SIH #26138)"
 	@echo ""
 	@echo "Targets:"
-	@echo "  make test       Run full pytest verification suite (77+ tests)"
-	@echo "  make data       Process EU MRV/Kaggle datasets & generate synthetic fleets"
-	@echo "  make train      Train & calibrate predictive models (Physics, QPSO-XGBoost)"
-	@echo "  make optimize   Execute baseline green fleet optimization"
-	@echo "  make benchmark  Execute multi-algorithm benchmarking suite (S, M, L, XL)"
-	@echo "  make demo       Launch interactive Streamlit decision support platform"
-	@echo "  make api        Serve the FastAPI backend on :8000 (React frontend)"
-	@echo "  make frontend   Launch the React dashboard dev server on :5173"
-	@echo "  make all        Run full pipeline end-to-end"
+	@echo "  make dev            Run the API (:8000) and the React dashboard (:5173) together"
+	@echo "  make test           Run the pytest suite"
+	@echo "  make data           Process EU MRV / Kaggle data and generate synthetic fleets"
+	@echo "  make train          Train the EU MRV fuel model and the voyage-level candidates"
+	@echo "  make optimize       Case study: 5 scenarios + carbon sweep at the full budget (~15 min)"
+	@echo "  make optimize-fast  Same at a reduced budget, for a quick check"
+	@echo "  make benchmark      QIEA vs GA / MOPSO / SA on instances S, M, L, XL (fresh run)"
+	@echo "  make api            FastAPI backend on :8000 (also serves frontend/dist if built)"
+	@echo "  make frontend       React dashboard dev server on :5173"
+	@echo "  make demo           Legacy Streamlit app"
+	@echo "  make all            Full pipeline end to end"
 
 test:
 	$(PYTHON) -m pytest -q
@@ -24,13 +27,17 @@ data:
 	$(PYTHON) -m src.data.generate_synthetic --vessels 20 --routes 5 --seed 42
 
 train:
+	$(PYTHON) -m src.prediction.mrv_model
 	$(PYTHON) -m src.prediction.train
 
 optimize:
+	$(PYTHON) -m src.case_study.run
+
+optimize-fast:
 	$(PYTHON) -m src.case_study.run --fast
 
 benchmark:
-	$(PYTHON) -m src.benchmark.run_all --config configs/benchmark.yaml
+	$(PYTHON) -m src.benchmark.run_all --config configs/benchmark.yaml --no-resume
 
 demo:
 	$(PYTHON) -m streamlit run ui/app.py
@@ -46,5 +53,8 @@ frontend: frontend-install
 
 frontend-build: frontend-install
 	cd frontend && npm run build
+
+dev:
+	$(MAKE) -j2 api frontend
 
 all: test data train optimize benchmark

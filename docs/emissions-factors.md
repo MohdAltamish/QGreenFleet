@@ -13,11 +13,11 @@
 > ACTION: replace with cited exact values before demo; keep source column.
 
 ## CII (IMO)
-attained = annual CO₂ (g) / (DWT × annual nm). Bands A–E vs reference line, reduction factor per year (2023: 5%, tightening annually). Constraint: band ≤ C.
+attained = annual CO₂ (g) / (DWT × annual nm). Bands A–E vs reference line, reduction factor per year (2023: 5%, tightening annually). In code (`src/optimization/constraints.py`) the constraint is attained CII ≤ `cii_limit` per vessel (default 1984·DWT^−0.489), using the vessel's speed and fuel; the cii_tightened scenario lowers the limit by 11%.
 
 ## EU ETS / FuelEU (scenario module)
-- Carbon price applied to TtW CO₂e for EU voyages (scenario slider 0–200 $/t)
-- FuelEU: WtW intensity limit vs 2020 baseline: −2% (2025), −6% (2030) — scenario toggle
+- Carbon price ($/t) is multiplied by total WtW GHG and added to opex (Z3) for all voyages (no EU-only scope)
+- FuelEU: WtW intensity limit vs 2020 baseline: −2% (2025), −6% (2030) — not implemented as a scenario toggle; FuelEU is used only as a source for factors
 
 ## Shore power
-While berthed with sp=1: auxiliary fuel burn (≈2–4 t/day HFO-equiv) replaced by grid electricity at grid EF (scenario parameter).
+In code: each assigned vessel–route with sp=1 on a route flagged `shore_power` gets a flat 3 tCO₂e reduction in Z2 (`src/optimization/objectives.py`). There is no shore-power-availability scenario lever.

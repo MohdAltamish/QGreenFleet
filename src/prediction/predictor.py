@@ -1,17 +1,29 @@
 """Production predictor interface for the fleet optimization engine.
 
-Implements a two-stage hybrid prediction surrogate:
-    1. Macro Empirical Stage (Real EU MRV Model):
-       Predicts baseline fuel_per_nm (kg/nm) directly from verified statutory
-       EU MRV THETIS operational records as a function of vessel category and
-       cruising speed (accounting for cubic admiralty resistance), converted
-       to metric tons per day:
-           tons/day = fuel_per_nm_kg * speed_kn * 24 / 1000
-    2. Micro Hydrodynamic Stage (Voyage Surrogate Adjustment):
-       Applies a multiplicative draft and weather condition multiplier:
-           adjustment = clip(pred(draft, weather) / pred(mean_draft, weather=1), 0.7, 1.3)
-    3. Graceful Fallback:
-       If models/mrv_best.pkl is absent, falls back to the calibrated single-stage model.
+Two stages, and it is explicit about which parts are learned:
+    1. Learned level (EU MRV model): the QPSO-XGBoost model trained on EU MRV
+       THETIS ship-years predicts fuel per nautical mile (kg/nm) at the
+       vessel's operating speed (its design speed; the category median speed
+       when no vessel is given), from category and EEDI. A vessel's EEDI is
+       estimated from its deadweight with the IMO reference lines when not
+       supplied.
+    2. Physics, not learning, for the rest:
+       - Speed: admiralty law, fuel/day ∝ v³ (kg/nm ∝ v²). Across MRV ships
+         speed is confounded with size, so the tree model cannot be trusted
+         for the speed curve itself.
+       - Draft: displacement scaling (T / T_ref)^(2/3).
+       - Weather: sea-margin factor per sea state (calm 0.93, moderate 1.00,
+         rough 1.15; moderate is the average condition MRV annual data carry,
+         and ~15% is the conventional design sea margin).
+       - Low engine load: below the operating speed the engine runs at part
+         load (load ≈ (v / v_ref)³), where specific fuel consumption rises.
+         factor = 1 + 0.15 * (1 - load)² — about +4% at 50% load and +8% at
+         25%, the usual shape of 2-stroke SFOC curves. Keeps slow-steaming
+         savings conservative instead of trusting the pure cube law.
+       The combined draft x weather factor is clipped to [0.7, 1.3].
+       tons/day = kg/nm * speed_kn * 24 / 1000.
+    3. Fallback: if models/mrv_best.pkl is absent, the calibrated single-stage
+       voyage model is used.
 """
 
 from __future__ import annotations
@@ -33,12 +45,33 @@ DEFAULT_META_PATH = _PROJECT_ROOT / "models" / "best_meta.json"
 DEFAULT_MRV_MODEL_PATH = _PROJECT_ROOT / "models" / "mrv_best.pkl"
 DEFAULT_MRV_META_PATH = _PROJECT_ROOT / "models" / "mrv_best_meta.json"
 
-# Nominal mean drafts per vessel category for baseline voyage normalization
+# Reference drafts per category: the loading condition MRV annual averages represent.
 TYPE_MEAN_DRAFTS: dict[str, float] = {
     "container": 12.0,
     "bulk": 10.5,
     "tanker": 11.5,
 }
+
+# Sea-margin factor by sea state (0 calm, 1 moderate = MRV average, 2 rough).
+# ponytail: fixed literature-style factors; replace with a fitted added-resistance
+# model once voyage data with real weather signal is available.
+WEATHER_FACTORS: tuple[float, float, float] = (0.93, 1.00, 1.15)
+
+TWO_STAGE_NAME = "QPSO-XGBoost (EU MRV) + admiralty/sea-margin rules"
+
+# IMO EEDI reference lines, EEDI_ref = a * capacity^(-c) (MEPC.231(65)); capacity
+# is DWT, or 70% of DWT for container ships.
+EEDI_REFERENCE_LINES: dict[str, tuple[float, float, float]] = {
+    "bulk": (961.79, 0.477, 1.0),
+    "tanker": (1218.80, 0.488, 1.0),
+    "container": (174.22, 0.201, 0.7),
+}
+
+
+def estimate_eedi(ship_type: str, dwt: float | np.ndarray) -> np.ndarray:
+    """IMO reference-line EEDI (g-CO2 / t·nm) for a vessel of this type and size."""
+    a, c, share = EEDI_REFERENCE_LINES.get(normalize_type_key(ship_type), EEDI_REFERENCE_LINES["bulk"])
+    return a * np.maximum(np.asarray(dwt, dtype=float) * share, 1.0) ** (-c)
 
 
 class FuelPredictor:
@@ -108,6 +141,26 @@ class FuelPredictor:
                 self.has_mrv = False
                 self.mrv_model = None
 
+        if self.has_mrv:
+            # Headline accuracy is the MRV model scored the way the app uses it,
+            # not the (signal-free) voyage model.
+            self.voyage_model_name = self.model_name
+            self.model_name = TWO_STAGE_NAME
+            fleet = self.mrv_meta.get("fleet_inference_metrics") or self.mrv_meta.get("test_metrics", {})
+            heldout = self.mrv_meta.get("test_metrics", {})
+            cv = self.mrv_meta.get("cv_5fold", {})
+            self.metrics = {
+                "test_r2": fleet.get("r2"),
+                "test_mape": fleet.get("mape"),
+                "test_rmse": fleet.get("rmse"),
+                "heldout_r2": heldout.get("r2"),
+                "heldout_mape": heldout.get("mape"),
+                "cv_rmse_mean": cv.get("rmse_mean"),
+                "cv_rmse_std": cv.get("rmse_std"),
+                "units": "kg/nm",
+                "basis": "EU MRV held-out ships at their own speed, EEDI unknown (conservative)",
+            }
+
     def build_features(
         self,
         speed_arr: np.ndarray,
@@ -175,34 +228,21 @@ class FuelPredictor:
         ship_type: str,
         speed_kn: float | np.ndarray = 15.0,
     ) -> float | np.ndarray:
-        """Compute voyage-level multiplicative hydrodynamic adjustment factor.
+        """Rule-based draft x weather multiplier, clipped to [0.7, 1.3].
 
-        Calculates ratio of model prediction at (draft, weather) to prediction
-        at nominal reference conditions (type-mean draft, weather=1.0), strictly
-        clipped to [0.7, 1.3].
+        draft: (T / T_ref)^(2/3) — admiralty displacement scaling at constant
+        block coefficient. weather: WEATHER_FACTORS interpolated over the
+        0-2 sea-state scale. speed_kn only sets the output shape.
         """
         norm_type = normalize_type_key(ship_type)
-        mean_draft = TYPE_MEAN_DRAFTS.get(norm_type, 11.5)
+        ref_draft = TYPE_MEAN_DRAFTS.get(norm_type, 11.5)
         speed_arr = np.atleast_1d(np.asarray(speed_kn, dtype=float))
 
-        feats_actual = self.build_features(
-            speed_arr=speed_arr,
-            draft_m=draft_m,
-            weather_severity=weather_severity,
-            ship_type=ship_type,
-        )
-        pred_actual = self.model.predict(feats_actual)
-
-        feats_ref = self.build_features(
-            speed_arr=speed_arr,
-            draft_m=mean_draft,
-            weather_severity=1.0,
-            ship_type=ship_type,
-        )
-        pred_ref = self.model.predict(feats_ref)
-
-        ratio = pred_actual / np.maximum(1e-6, pred_ref)
-        adj = np.clip(ratio, 0.7, 1.3)
+        draft_arr = np.broadcast_to(np.asarray(draft_m, dtype=float), speed_arr.shape)
+        weather_arr = np.broadcast_to(np.asarray(weather_severity, dtype=float), speed_arr.shape)
+        draft_factor = (np.maximum(draft_arr, 0.1) / ref_draft) ** (2.0 / 3.0)
+        weather_factor = np.interp(weather_arr, [0.0, 1.0, 2.0], WEATHER_FACTORS)
+        adj = np.clip(draft_factor * weather_factor, 0.7, 1.3)
 
         if np.isscalar(speed_kn) and np.isscalar(draft_m):
             return float(adj[0])
@@ -216,6 +256,8 @@ class FuelPredictor:
         ship_type: str,
         route_type: str = "Transoceanic",
         maintenance_status: str = "Fair",
+        ref_speed_kn: float | np.ndarray | None = None,
+        eedi_value: float | np.ndarray | None = None,
     ) -> float | np.ndarray:
         """Predict fuel consumption in metric tons per day using two-stage surrogate.
 
@@ -226,6 +268,11 @@ class FuelPredictor:
             ship_type: Vessel classification ('container', 'bulk', 'tanker').
             route_type: Route type description (default 'Transoceanic').
             maintenance_status: Condition ('Fair', 'Good', 'Critical').
+            ref_speed_kn: The vessel's operating (design) speed, scalar or per
+                element. The learned level is taken there and the admiralty law
+                scales it to speed_kn. Defaults to the category median speed.
+            eedi_value: The vessel's EEDI, scalar or per element. Defaults to
+                the category median (EEDI unknown).
 
         Returns:
             Calibrated fuel consumption in tons/day matching scalar/array input shape.
@@ -234,32 +281,34 @@ class FuelPredictor:
         speed_arr = np.atleast_1d(np.asarray(speed_kn, dtype=float))
         norm_type = normalize_type_key(ship_type)
 
-        # Stage 1: Real EU MRV Operational Baseline (if available)
+        # Stage 1: learned kg/nm level at the category reference speed,
+        # then physics for speed, draft and weather.
         if self.has_mrv and self.mrv_model is not None:
             n = len(speed_arr)
-            defaults = self.mrv_meta.get("fleet_defaults", {}).get(
-                norm_type,
-                {"eedi_value": 10.0, "laden_ratio": 0.65, "fuel_per_dwt_nm": 0.0025},
-            )
+            default_ref = float(self.mrv_meta.get("reference_speed_kn", {}).get(norm_type, 12.0))
+            default_eedi = float(self.mrv_meta.get("fleet_defaults", {}).get(norm_type, {}).get("eedi_value", 10.0))
+            v_ref = np.broadcast_to(np.asarray(default_ref if ref_speed_kn is None else ref_speed_kn, dtype=float), (n,))
+            eedi = np.broadcast_to(np.asarray(default_eedi if eedi_value is None else eedi_value, dtype=float), (n,))
+            rows = pd.DataFrame({
+                "avg_speed_kn": v_ref,
+                "speed_cubed": v_ref ** 3,
+                "eedi_value": eedi,
+                "category_bulk": np.full(n, int(norm_type == "bulk")),
+                "category_container": np.full(n, int(norm_type == "container")),
+                "category_tanker": np.full(n, int(norm_type == "tanker")),
+            })
+            feat_order = self.mrv_meta.get("feature_names", list(rows.columns))
+            raw = self.mrv_model.predict(rows[feat_order])
+            kg_nm_ref = np.expm1(raw) if self.mrv_meta.get("target_transform") == "log1p" else raw
+            kg_nm_ref = np.maximum(0.1, kg_nm_ref)
 
-            mrv_data = {
-                "avg_speed_kn": speed_arr,
-                "speed_cubed": speed_arr ** 3,
-                "eedi_value": np.full(n, float(defaults.get("eedi_value", 10.0))),
-                "laden_ratio": np.full(n, float(defaults.get("laden_ratio", 0.65))),
-                "fuel_per_dwt_nm": np.full(n, float(defaults.get("fuel_per_dwt_nm", 0.0025))),
-                "category_bulk": np.full(n, 1 if norm_type == "bulk" else 0),
-                "category_container": np.full(n, 1 if norm_type == "container" else 0),
-                "category_tanker": np.full(n, 1 if norm_type == "tanker" else 0),
-            }
-            feat_order = self.mrv_meta.get("feature_names", list(mrv_data.keys())[:8])
-            mrv_df = pd.DataFrame(mrv_data)[feat_order]
-
-            fuel_per_nm_kg = np.maximum(0.1, self.mrv_model.predict(mrv_df))
-            # Convert kg/nm -> metric tons per day: kg/nm * nm/h * 24h / 1000 kg/t
+            # Admiralty law: kg/nm ∝ v², so tons/day ∝ v³ — with the part-load
+            # SFOC penalty below the operating speed.
+            load = np.clip((speed_arr / v_ref) ** 3, 0.0, 1.0)
+            sfoc_factor = 1.0 + 0.15 * (1.0 - load) ** 2
+            fuel_per_nm_kg = kg_nm_ref * (speed_arr / v_ref) ** 2 * sfoc_factor
             macro_tpd = fuel_per_nm_kg * speed_arr * 24.0 / 1000.0
 
-            # Stage 2: Micro Voyage Hydrodynamic Adjustment (draft & weather)
             adj = self.compute_adjustment_ratio(
                 draft_m=draft_m,
                 weather_severity=weather_severity,

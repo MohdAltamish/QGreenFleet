@@ -1,8 +1,16 @@
-FROM python:3.11-slim-bookworm
+# Stage 1 — build the React frontend
+FROM node:20-bookworm-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
 
+# Stage 2 — FastAPI backend serving the API and the built frontend
+FROM python:3.11-slim-bookworm
 WORKDIR /app
 
-# Install system dependencies for WeasyPrint and rendering
+# System libraries for WeasyPrint (PDF reports)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -14,20 +22,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app
 COPY . .
+COPY --from=frontend /frontend/dist ./frontend/dist
 
-# Ensure /app is in PYTHONPATH and configure headless Streamlit
-ENV PYTHONPATH="/app:${PYTHONPATH}"
-ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
-ENV STREAMLIT_SERVER_HEADLESS=true
-
-# Expose port
+ENV PYTHONPATH="/app"
 EXPOSE 7860
 
-# Run app with dynamic port fallback
-CMD ["sh", "-c", "streamlit run ui/app.py --server.port=${PORT:-7860} --server.address=0.0.0.0 --server.headless=true"]
+# One process: /api/* is the FastAPI backend, everything else is the React app.
+CMD ["sh", "-c", "uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-7860}"]

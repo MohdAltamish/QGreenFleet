@@ -1,78 +1,106 @@
-"""Regenerate publication-grade sample PDFs into docs/samples/."""
+"""Regenerate the sample PDFs in docs/samples/ from the committed baseline case study.
+
+The knee plan and the business-as-usual plan are rebuilt as real decision
+matrices from outputs/case_study/baseline/*.json and re-evaluated with the
+production predictor, so every number in the PDFs comes from the engine.
+Run `make optimize` first; this script refuses to invent a result.
+"""
+
+from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
-from src.optimization.individual import Solution
-from src.prediction.predictor import FuelPredictor
-from ui.utils.pdf_export import generate_summary_pdf, generate_technical_pdf
-from ui.utils.report_data import build_report_data
+import numpy as np
+import pandas as pd
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
-samples_dir = _PROJECT_ROOT / "docs" / "samples"
-samples_dir.mkdir(parents=True, exist_ok=True)
+sys.path.insert(0, str(_PROJECT_ROOT))
 
-# Load case study data if available
-baseline_dir = _PROJECT_ROOT / "outputs" / "case_study" / "baseline"
-fleet_path = _PROJECT_ROOT / "data" / "synthetic" / "fleet_20v_5r_seed42.json"
+from src.emissions.factors import OPTIMIZER_FUELS  # noqa: E402
+from src.optimization.constraints import evaluate_violations  # noqa: E402
+from src.optimization.individual import Solution  # noqa: E402
+from src.optimization.objectives import evaluate_objectives  # noqa: E402
+from src.optimization.runner import load_fleet_data  # noqa: E402
+from src.prediction.predictor import FuelPredictor  # noqa: E402
+from ui.utils.pdf_export import generate_summary_pdf, generate_technical_pdf  # noqa: E402
+from ui.utils.report_data import build_report_data  # noqa: E402
 
-fleet = json.loads(fleet_path.read_text(encoding="utf-8"))
-pred = FuelPredictor()
+CASE = _PROJECT_ROOT / "outputs" / "case_study" / "baseline"
+FLEET = _PROJECT_ROOT / "data" / "synthetic" / "fleet_20v_5r_seed42.json"
+SAMPLES = _PROJECT_ROOT / "docs" / "samples"
+PRICES = {"HFO": 650.0, "LNG_DIESEL": 800.0, "MEOH_GREEN": 1200.0, "H2_GREEN": 3000.0, "NH3_GREEN": 2500.0}
 
-# Load knee and bau solutions from case study if present
-import numpy as np
-n_v = len(fleet["vessels"])
-if (baseline_dir / "solution_knee.json").exists() and (baseline_dir / "bau_baseline.json").exists():
-    knee_dict = json.loads((baseline_dir / "solution_knee.json").read_text(encoding="utf-8"))
-    bau_dict = json.loads((baseline_dir / "bau_baseline.json").read_text(encoding="utf-8"))
 
-    knee_sol = Solution(
-        q_matrix=np.zeros((n_v, 2)),
-        speeds=np.full((n_v, 1), 14.0),
+def rebuild(plan: dict, vessels: list, routes: list, predictor: FuelPredictor) -> Solution:
+    """Decision matrices from a serialized plan, re-evaluated with the engine."""
+    V, R = len(vessels), len(routes)
+    route_idx = {r["id"]: i for i, r in enumerate(routes)}
+    vessel_idx = {v["id"]: i for i, v in enumerate(vessels)}
+    assignment = np.zeros((V, R), dtype=bool)
+    fuel = np.zeros(V, dtype=int)
+    shore = np.zeros((V, R), dtype=bool)
+    speeds = np.array([[float(v.get("design_speed", 15.0))] * R for v in vessels])
+    for row in plan["vessels"]:
+        v = vessel_idx[row["vessel_id"]]
+        fuel[v] = OPTIMIZER_FUELS.index(row["fuel"])
+        r = route_idx.get(row["route_id"])
+        if r is None:
+            continue
+        assignment[v, r] = True
+        # Saved speeds are rounded; restore the schedule floor repair() enforces.
+        sched = routes[r]["distance_nm"] / max(1.0, routes[r]["schedule_days"] * 24.0)
+        speeds[v, r] = max(float(row["speed_kn"]), sched)
+        shore[v, r] = bool(row.get("shore_power", False))
+    sol = Solution(q_matrix=np.zeros((1, 2)), speeds=speeds)
+    sol.observed = {"assignment": assignment, "fuel": fuel, "shore_power": shore}
+    evaluate_violations(sol, vessels, routes)
+    evaluate_objectives(sol, vessels, routes, predictor, PRICES, carbon_price=0.0)
+    return sol
+
+
+def main() -> None:
+    for name in ("solution_knee.json", "bau_baseline.json", "pareto.csv"):
+        if not (CASE / name).exists():
+            raise SystemExit(f"Missing {CASE / name}. Run `make optimize` first.")
+
+    vessels, routes = load_fleet_data(FLEET)
+    predictor = FuelPredictor()
+    knee = rebuild(json.loads((CASE / "solution_knee.json").read_text()), vessels, routes, predictor)
+    bau = rebuild(json.loads((CASE / "bau_baseline.json").read_text()), vessels, routes, predictor)
+
+    pareto = []
+    for _, row in pd.read_csv(CASE / "pareto.csv").iterrows():
+        s = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
+        s.objectives = row[["fuel_cost_usd", "ghg_wtw_tco2e", "opex_usd"]].to_numpy(dtype=float)
+        s.raw_objectives = s.objectives.copy()
+        s.feasible = True
+        pareto.append(s)
+
+    sweep_csv = CASE.parent / "carbon_sweep.csv"
+    history_json = CASE / "history.json"
+    data = build_report_data(
+        solution=knee,
+        pareto=pareto,
+        history=json.loads(history_json.read_text()) if history_json.exists() else None,
+        fleet={"vessels": vessels, "routes": routes},
+        bau=bau,
+        sweep_results=pd.read_csv(sweep_csv) if sweep_csv.exists() else None,
+        predictor=predictor,
+        fuel_prices=PRICES,
+        carbon_price=0.0,
     )
-    knee_obj = knee_dict["objectives"]
-    knee_sol.objectives = np.array([knee_obj["fuel_cost_usd"], knee_obj["ghg_wtw_tco2e"], knee_obj["opex_usd"]])
 
-    bau_sol = Solution(
-        q_matrix=np.zeros((n_v, 2)),
-        speeds=np.full((n_v, 1), 16.0),
-    )
-    bau_obj = bau_dict["objectives"]
-    bau_sol.objectives = np.array([bau_obj["fuel_cost_usd"], bau_obj["ghg_wtw_tco2e"], bau_obj["opex_usd"]])
+    SAMPLES.mkdir(parents=True, exist_ok=True)
+    for label, fn, fname in (
+        ("Executive Summary", generate_summary_pdf, "QGreenFleet_Executive_Summary.pdf"),
+        ("Technical Report", generate_technical_pdf, "QGreenFleet_Technical_Report.pdf"),
+    ):
+        pdf = fn(data)
+        (SAMPLES / fname).write_bytes(pdf)
+        print(f"Saved {label} ({len(pdf):,} bytes) to {SAMPLES / fname}")
 
-    pareto_sols = [knee_sol]
-    if (baseline_dir / "pareto.csv").exists():
-        import pandas as pd
-        df_p = pd.read_csv(baseline_dir / "pareto.csv")
-        pareto_sols = []
-        for _, r in df_p.iterrows():
-            s = Solution(q_matrix=knee_sol.q_matrix, speeds=knee_sol.speeds)
-            s.objectives = r[["fuel_cost_usd", "ghg_wtw_tco2e", "opex_usd"]].to_numpy(dtype=float)
-            pareto_sols.append(s)
-else:
-    knee_sol = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
-    knee_sol.objectives = np.array([9624000.0, 44610.0, 17105000.0])
-    bau_sol = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
-    bau_sol.objectives = np.array([11486000.0, 58140.0, 18930000.0])
-    pareto_sols = [knee_sol]
 
-data = build_report_data(
-    solution=knee_sol,
-    pareto=pareto_sols,
-    history=None,
-    fleet=fleet,
-    bau=bau_sol,
-    sweep_results={"crossover_carbon_price": 85.0},
-)
-
-print("Compiling Executive Summary PDF...")
-pdf_exec = generate_summary_pdf(data)
-exec_path = samples_dir / "QGreenFleet_Executive_Summary.pdf"
-exec_path.write_bytes(pdf_exec)
-print(f"Saved Executive Summary PDF ({len(pdf_exec):,} bytes) to {exec_path}")
-
-print("Compiling Technical Report PDF...")
-pdf_tech = generate_technical_pdf(data)
-tech_path = samples_dir / "QGreenFleet_Technical_Report.pdf"
-tech_path.write_bytes(pdf_tech)
-print(f"Saved Technical Report PDF ({len(pdf_tech):,} bytes) to {tech_path}")
+if __name__ == "__main__":
+    main()

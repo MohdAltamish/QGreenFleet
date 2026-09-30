@@ -59,6 +59,9 @@ outputs/*
 !outputs/case_study/carbon_100/
 !outputs/case_study/cii_tightened/
 !outputs/case_study/meoh_subsidized/
+!outputs/case_study/green_corridor/
+!outputs/*.md
+!outputs/*.png
 !outputs/pareto.csv
 !outputs/prediction_report.md
 !outputs/benchmark_results.csv

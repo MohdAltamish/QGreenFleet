@@ -79,7 +79,7 @@ export default function Scenarios() {
             value={active}
             onChange={setSelected}
             options={scenarios.map((s) => ({ value: s.name, label: s.label }))}
-            hint="Sets the scenario for section 2 below. The comparison charts in section 1 always show all four."
+            hint="Sets the scenario for section 2 below. The comparison charts in section 1 always show every scenario."
           />
         </div>
 
@@ -112,7 +112,7 @@ function ScenarioComparison({ scenarios }) {
   return (
     <section className="section">
       <div className="section-head">
-        <h2 className="section-head__title">1 · All four scenarios compared</h2>
+        <h2 className="section-head__title">1 · All {withKpis.length} scenarios compared</h2>
         <span className="section-head__note">
           One bar per policy. Each chart is a single measure, so the three never share an axis.
         </span>

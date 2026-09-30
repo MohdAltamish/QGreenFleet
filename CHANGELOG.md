@@ -1,30 +1,38 @@
 # Changelog
 All notable changes. Format: Keep a Changelog; versioning: 0.x during hackathon.
 
+## [Unreleased]
+### Changed
+- Prediction: QPSO-XGBoost on EU MRV THETIS 2022–2023 (21,622 ship-years) with speed, EEDI and category; monotone speed constraints; log target; ship-grouped split. Held-out ships: R² 0.524 / MAPE 26.3% (ship's own EEDI); EEDI unknown: R² 0.348 / MAPE 34.5%; category median: R² 0.234 / MAPE 36.9%. MAPE < 10% target not met.
+- Optimizer predictor: admiralty speed law (fuel/day ∝ v³) with part-load SFOC penalty; draft and weather are rule-based factors (the voyage-level stage-2 surrogate was dropped: all stage-2 models R² ≤ 0). Fleet EEDI estimated from DWT via IMO reference lines (MEPC.231(65)).
+- Constraints: C3 one route per vessel per planning period; C4 CII uses the vessel's speed and fuel; fuel tonnes converted by LHV (energy basis).
+- Case study: five scenarios (baseline, carbon_100, cii_tightened, meoh_subsidized, green_corridor).
+- Deployment: Dockerfile builds the React app and serves it from FastAPI on `$PORT` (7860); `render.yaml` health check `/api/health`; `make dev` runs API + React.
+- Docs: removed claims for features that do not exist and removed hard-coded results numbers; results are in docs/case-study-results.md and outputs/benchmark_report.md.
+
 ## [0.3.0] — 2026-09-03
 ### Added
 - **Real-Data EU MRV Prediction Engine (`src/prediction/mrv_model.py`)**:
   - Trained directly on 21,622 statutory EU MRV THETIS annual vessel reports across 13,820 unique IMO vessels.
   - Ship-level 80/20 train/test partition stratified by naval category with 0% IMO overlap (zero data leakage).
-  - QPSO hyperparameter-tuned XGBoost achieving **Test R² = 0.5425**, **Test MAPE = 28.50%** (slashed from 54% synthetic baseline), and **Test RMSE = 44.35 kg/nm** across 4,302 out-of-sample ships.
+  - QPSO hyperparameter-tuned XGBoost evaluated on out-of-sample ships (metrics superseded; see Unreleased).
   - Generated empirical parity plot (`outputs/parity_mrv.png`) and comprehensive report (`outputs/mrv_model_report.md`).
 - **Two-Stage Hybrid Production Predictor (`src/prediction/predictor.py`)**:
   - Stage 1 (Macro Real-Data Baseline): EU MRV model predicts operational fuel consumption per nm ($\text{kg/nm} \times \text{kn} \times 24 / 1000$).
-  - Stage 2 (Micro Hydrodynamic Adjustment): Voyage surrogate computes draft and weather multiplier clipped to $[0.7, 1.3]$.
+  - Stage 2 (Micro Hydrodynamic Adjustment): Voyage surrogate computed a draft and weather multiplier clipped to $[0.7, 1.3]$ (later replaced by rule-based factors; see Unreleased).
   - Graceful fallback to single-stage calibrated predictor when MRV pickle is absent.
 - **Benchmark Suite Closeout & Scalability (`src/benchmark/`)**:
   - Completed all 72 evaluation runs across instances S (5v), M (20v), L (50v), and XL (100v) for QIEA, GA, MOPSO, and SA.
   - Generated algorithmic scalability plot (`outputs/scalability.png`) demonstrating sub-exponential scaling.
-  - Regenerated `outputs/benchmark_report.md` with complete S/M/L/XL tables, mean ± std, winners bolded, and zero `[pending]` markers.
-  - Documented empirical QIEA vs GA speedup factors: 1.1–1.4× faster across fleet scales (S, M, L, XL); QIEA converges to strong compromise solutions faster, outperforming GA's broad spread on collinear maritime objectives.
+  - Regenerated `outputs/benchmark_report.md` with S/M/L/XL tables (mean ± std).
 - **Publication-Grade Diagrams & UI Integration**:
   - Generated `charts/architecture_diagram.png` and `charts/data_trust_diagram.png`.
   - Embedded data trust diagram into Technical Report §5 and architecture diagram into §8.
   - Embedded system architecture diagram directly onto the Streamlit platform home page (`ui/app.py`).
 - **Final Sample Publication Reports (`docs/samples/`)**:
-  - Pre-compiled updated `QGreenFleet_Executive_Summary.pdf` (1.15 MB, 100% Jargon Guard compliant).
+  - Pre-compiled updated `QGreenFleet_Executive_Summary.pdf` (checked by the Jargon Guard test).
   - Pre-compiled updated `QGreenFleet_Technical_Report.pdf` (1.44 MB, full S/M/L/XL table and 13 figures).
-  - Test suite expanded to 81/81 passing unit tests (`pytest -q`).
+  - Test suite expanded (`pytest -q`).
 
 ## [0.2.0] — 2026-09-02
 ### Added
@@ -53,10 +61,10 @@ All notable changes. Format: Keep a Changelog; versioning: 0.x during hackathon.
   - Pre-compiled publication samples under `docs/samples/`.
 - **Case Study Suite (`src/case_study/`)**:
   - End-to-end evaluation of 4 policy scenarios (Baseline, Carbon Tax $100/t, Tightened 2030 CII, Methanol Subsidy -20%).
-  - Carbon tax sensitivity sweep discovering clean fuel economic crossover at $85/t-CO₂e.
+  - Carbon tax sensitivity sweep (crossover result: see docs/case-study-results.md).
 - **Developer Workflow & Automation**:
   - `Makefile` and `scripts/demo.sh` for fast reproducible commands.
-  - 77 passing unit and integration tests (`pytest -q`).
+  - pytest suite (`pytest -q`).
 
 ## [0.1.0] — 2026-08-30
 ### Added

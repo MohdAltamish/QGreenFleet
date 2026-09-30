@@ -25,8 +25,11 @@ def test_ship_level_split_no_leakage() -> None:
     assert len(y_te) == len(X_te_all)
 
     # Verify that required engineered features exist
-    for col in ["avg_speed_kn", "speed_cubed", "eedi_value", "laden_ratio", "fuel_per_dwt_nm", "category_container"]:
+    for col in ["avg_speed_kn", "speed_cubed", "eedi_value", "category_container"]:
         assert col in feat_cols, f"Expected feature {col} missing from MRV feature columns"
+    # Target-derived / unknowable-at-inference features must stay out.
+    for col in ["fuel_per_dwt_nm", "laden_ratio"]:
+        assert col not in feat_cols, f"{col} leaks the target or is unknown at inference"
 
     # Category imputation coverage
     for cat in ["container", "bulk", "tanker"]:
@@ -90,3 +93,40 @@ def test_fallback_path_when_pkl_absent() -> None:
     val = pred.predict_tpd(speed_kn=15.0, draft_m=12.0, weather_severity=1, ship_type="container")
     assert np.isfinite(val)
     assert val > 0.0
+
+
+def test_speed_curve_follows_admiralty_cube_law() -> None:
+    """Above the operating speed, doubling speed multiplies daily fuel by 8 (fuel/day ∝ v³)."""
+    pred = FuelPredictor()
+    if not pred.has_mrv:
+        pytest.skip("MRV model not trained")
+    for stype in ["container", "bulk", "tanker"]:
+        lo = pred.predict_tpd(speed_kn=14.0, draft_m=11.0, weather_severity=1, ship_type=stype)
+        hi = pred.predict_tpd(speed_kn=28.0, draft_m=11.0, weather_severity=1, ship_type=stype)
+        assert hi / lo == pytest.approx(8.0, rel=1e-6)
+
+
+def test_weather_and_draft_move_fuel_the_right_way() -> None:
+    """Rougher sea and deeper draft each raise consumption; calm sea lowers it."""
+    pred = FuelPredictor()
+    if not pred.has_mrv:
+        pytest.skip("MRV model not trained")
+    calm, mod, rough = (
+        pred.predict_tpd(speed_kn=14.0, draft_m=12.0, weather_severity=w, ship_type="container") for w in (0, 1, 2)
+    )
+    assert calm < mod < rough
+    shallow = pred.predict_tpd(speed_kn=14.0, draft_m=8.0, weather_severity=1, ship_type="container")
+    deep = pred.predict_tpd(speed_kn=14.0, draft_m=15.0, weather_severity=1, ship_type="container")
+    assert shallow < mod < deep
+
+
+def test_part_load_penalty_keeps_slow_steaming_conservative() -> None:
+    """Below the operating speed, fuel falls less than the pure cube law says."""
+    pred = FuelPredictor()
+    if not pred.has_mrv:
+        pytest.skip("MRV model not trained")
+    ref = pred.mrv_meta["reference_speed_kn"]["bulk"]
+    full = pred.predict_tpd(speed_kn=ref, draft_m=10.5, weather_severity=1, ship_type="bulk")
+    half = pred.predict_tpd(speed_kn=ref / 2, draft_m=10.5, weather_severity=1, ship_type="bulk")
+    assert half / full > 1 / 8
+    assert half / full < 1 / 8 * 1.2

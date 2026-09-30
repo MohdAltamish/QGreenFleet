@@ -1,29 +1,53 @@
 {
   "scenario_name": "baseline",
-  "elapsed_seconds": 349.99,
+  "carbon_price": 0.0,
+  "elapsed_seconds": 17.95,
+  "pop_size": 100,
+  "generations": 100,
+  "pareto_size": 22,
+  "knee_feasible": true,
+  "knee_violations": {
+    "demand_deficit": 0.0,
+    "cii_excess": 0.0,
+    "fuel_unavailable": 0.0,
+    "schedule_delay": 0.0,
+    "vessel_overbooked": 0.0
+  },
+  "bau_feasible": true,
+  "bau_violations": {
+    "demand_deficit": 0.0,
+    "cii_excess": 0.0,
+    "fuel_unavailable": 0.0,
+    "schedule_delay": 0.0,
+    "vessel_overbooked": 0.0
+  },
+  "vessels_deployed": 5,
+  "bau_vessels_deployed": 6,
+  "fleet_size": 20,
+  "routes_count": 5,
   "bau_kpis": {
-    "fuel_cost_usd": 3168374.3416648153,
-    "ghg_wtw_tco2e": 17343.583657831918,
-    "opex_usd": 5546774.885298476
+    "fuel_cost_usd": 3078566.5438754316,
+    "ghg_wtw_tco2e": 16851.97853604969,
+    "opex_usd": 5456967.087509092
   },
   "knee_kpis": {
-    "fuel_cost_usd": 11153792.980915291,
-    "ghg_wtw_tco2e": 51416.91947789871,
-    "opex_usd": 18761960.638730183
+    "fuel_cost_usd": 1223047.3523718796,
+    "ghg_wtw_tco2e": 3369.7004470818547,
+    "opex_usd": 3407900.0701478263
   },
   "deltas": {
-    "fuel_cost_delta": 7985418.639250476,
-    "fuel_cost_pct": 252.0352009622245,
-    "ghg_delta": 34073.335820066786,
-    "ghg_pct": 196.46075743221695,
-    "opex_delta": 13215185.753431708,
-    "opex_pct": 238.2499024515683
+    "fuel_cost_delta": -1855519.191503552,
+    "fuel_cost_pct": -60.27218073927825,
+    "ghg_delta": -13482.278088967836,
+    "ghg_pct": -80.00412568842641,
+    "opex_delta": -2049067.0173612656,
+    "opex_pct": -37.549557922963224
   },
   "fuel_mix_pct": {
-    "HFO": 70.0,
-    "MEOH_GREEN": 15.0,
-    "LNG_DIESEL": 15.0
+    "HFO": 60.0,
+    "MEOH_GREEN": 20.0,
+    "LNG_DIESEL": 20.0
   },
-  "fuel_switches_count": 6,
-  "avg_speed_delta_kn": -2.21
+  "fuel_switches_count": 2,
+  "avg_speed_delta_kn": -4.73
 }

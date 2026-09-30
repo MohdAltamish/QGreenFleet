@@ -12,11 +12,13 @@ References:
 
 from __future__ import annotations
 
+import inspect
 from typing import Any, Callable, Sequence
 
 import numpy as np
 
-from src.emissions.factors import OPTIMIZER_FUELS, voyage_ghg_tco2e
+from src.emissions.factors import OPTIMIZER_FUELS, lhv_mj_per_kg, voyage_ghg_tco2e
+from src.prediction.predictor import estimate_eedi
 from src.optimization.individual import Solution
 
 
@@ -25,6 +27,12 @@ def _get(obj: Any, key: str, default: Any = 0.0) -> Any:
     if isinstance(obj, dict):
         return obj.get(key, default)
     return getattr(obj, key, default)
+
+
+def _accepts_vessel_inputs(predictor: Any) -> bool:
+    """True if predictor.predict_tpd takes per-vessel operating speed and EEDI."""
+    params = inspect.signature(predictor.predict_tpd).parameters
+    return "ref_speed_kn" in params and "eedi_value" in params
 
 
 _FLEET_ARRAYS_CACHE: dict[tuple[int, int, int, int], dict[str, np.ndarray]] = {}
@@ -40,6 +48,11 @@ def _get_fleet_cached_arrays(vessels: Sequence[Any], routes: Sequence[Any]) -> d
     dwts = np.array([float(_get(v, "dwt", 50000.0)) for v in vessels])
     drafts = np.array([float(_get(v, "draft_m", 8.0 + 6.0 * (d / 150000.0))) for d, v in zip(dwts, vessels)])
     charters = np.array([float(_get(v, "charter_per_day", 15000.0)) for v in vessels])
+    design_speeds = np.array([float(_get(v, "design_speed", 15.0)) for v in vessels])
+    eedis = np.array([
+        float(_get(v, "eedi_value", 0.0)) or float(estimate_eedi(str(t), d))
+        for v, t, d in zip(vessels, types, dwts)
+    ])
 
     distances = np.array([float(_get(r, "distance_nm", 1000.0)) for r in routes])
     weathers = np.array([int(_get(r, "weather_severity", 1)) for r in routes])
@@ -50,6 +63,8 @@ def _get_fleet_cached_arrays(vessels: Sequence[Any], routes: Sequence[Any]) -> d
         "dwts": dwts,
         "drafts": drafts,
         "charters": charters,
+        "design_speeds": design_speeds,
+        "eedis": eedis,
         "distances": distances,
         "weathers": weathers,
         "shore_avail": shore_avail,
@@ -105,6 +120,8 @@ def compute_voyage_metrics(
     dwts = arrs["dwts"]
     drafts = arrs["drafts"]
     charters = arrs["charters"]
+    design_speeds = arrs["design_speeds"]
+    eedis = arrs["eedis"]
     distances = arrs["distances"]
     weathers = arrs["weathers"]
     shore_avail = arrs["shore_avail"]
@@ -129,11 +146,17 @@ def compute_voyage_metrics(
         sub_weathers = act_weathers[mask]
 
         if hasattr(predictor, "predict_tpd"):
+            vessel_kwargs = (
+                {"ref_speed_kn": design_speeds[v_indices][mask], "eedi_value": eedis[v_indices][mask]}
+                if _accepts_vessel_inputs(predictor)
+                else {}
+            )
             fuel_tpd_arr[mask] = predictor.predict_tpd(
                 speed_kn=sub_speeds,
                 draft_m=sub_drafts,
                 weather_severity=sub_weathers,
                 ship_type=st,
+                **vessel_kwargs,
             )
         else:
             k = 0.005 if st == "container" else (0.003 if st == "bulk" else 0.004)
@@ -141,7 +164,12 @@ def compute_voyage_metrics(
 
     # Voyage duration (days) = distance / (24 * speed)
     voyage_days = act_dists / (24.0 * np.maximum(act_speeds, 1.0))
-    fc_voyages = fuel_tpd_arr * voyage_days
+    # The predictor returns HFO-equivalent tonnes (it is trained on MRV fuel
+    # mass, overwhelmingly fuel oil). The engine needs the same energy on any
+    # fuel, so convert by lower heating value before pricing and emissions:
+    # a tonne of methanol (19.9 MJ/kg) carries half the energy of HFO (40.2).
+    lhv_ratio = np.array([lhv_mj_per_kg("HFO") / lhv_mj_per_kg(fn) for fn in act_fuels])
+    fc_voyages = fuel_tpd_arr * voyage_days * lhv_ratio
 
     # Fuel cost ($)
     total_fuel_cost = float(np.sum(fc_voyages * act_prices))

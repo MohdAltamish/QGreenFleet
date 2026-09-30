@@ -148,23 +148,23 @@ export default function Predict() {
               foot="The quantity the MRV stage predicts directly"
             />
             <StatTile
-              label="Hydrodynamic adjustment"
+              label="Draft & weather factor"
               value={`${num(point.data.hydrodynamic_adjustment, 3)}×`}
-              foot="Draft & weather multiplier, clipped to 0.70–1.30"
+              foot="Rule-based multiplier, clipped to 0.70–1.30"
             />
           </div>
         )}
 
-        {point.data && Math.abs(point.data.hydrodynamic_adjustment - 1) < 0.01 && (
+        {point.data && (
           <div className="note">
             <Icon name="info" size={18} className="note__icon" />
             <span>
-              <strong>Stage 2 is near-neutral at this operating point.</strong> The hydrodynamic
-              multiplier is {num(point.data.hydrodynamic_adjustment, 3)}×, so draft and sea state
-              barely move the prediction — speed and ship class carry essentially all of it. That is
-              a property of the selected Stage-2 model ({point.data.model_name}), which responds
-              only weakly to draft and not at all to weather; a model with real environmental
-              sensitivity would show a multiplier further from 1.000.
+              <strong>What is learned and what is physics.</strong> The fuel level for each ship class
+              comes from a QPSO-tuned XGBoost model trained on EU MRV ship reports. How consumption
+              changes with speed follows the admiralty law (fuel per day ∝ speed³, with a part-load
+              penalty below the class&apos;s median speed). Draft and sea state apply rule-based factors —
+              the {num(point.data.hydrodynamic_adjustment, 3)}× shown above — because the voyage-level
+              dataset showed no learnable relation between those conditions and fuel.
             </span>
           </div>
         )}

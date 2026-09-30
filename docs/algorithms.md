@@ -29,8 +29,9 @@ One solution = (Q-matrix, speed vector). Each generation: QIEA step for Q, QPSO 
 joint evaluation. Archive shared. Stopping: 300 gens or 30 gens without hypervolume improvement.
 
 ## 4. Prediction-side quantum inspiration
-- **QPSO-XGB:** QPSO searches XGB hyperparameters + binary feature mask (qubit-encoded)
-- **QiNN:** neurons hold angle θ; output = sin²(θ + Σw·x); gradient-trained (PyTorch)
+- **QPSO-XGB:** QPSO (quantum-behaved PSO) searches XGBoost hyperparameters. This is the only quantum-inspired part of prediction; there is no quantum-inspired neural net (QiNN) in the code.
+- Model: trained on EU MRV THETIS 2022–2023 (21,622 ship-years) with features speed, EEDI and ship category, monotone speed constraints, log target and a ship-grouped split.
+- In the optimizer, the speed response follows the admiralty law (fuel/day ∝ v³) with a part-load SFOC penalty; draft and weather are rule-based factors. Fleet vessel EEDI is estimated from DWT via IMO reference lines (MEPC.231(65)).
 
 ## 5. Complexity
 Per generation: O(pop · (V·R eval + V·R·log for sort)). 200 vessels × 20 routes × pop 200 ≈ ms-scale per gen with vectorized NumPy.

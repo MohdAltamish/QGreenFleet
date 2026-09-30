@@ -10,10 +10,25 @@ import pandas as pd
 import plotly.graph_objects as go
 import pytest
 
+from src.optimization.bau import DEFAULT_FUEL_PRICES, compute_bau_baseline
+from src.optimization.constraints import evaluate_violations
 from src.optimization.individual import Solution
-from ui.utils.chart_helpers import fleet_map, ghg_waterfall, pareto_scatter
-from ui.utils.pdf_export import generate_summary_pdf, generate_technical_pdf
+from src.optimization.objectives import evaluate_objectives
+from ui.utils import chart_helpers
+from ui.utils.chart_helpers import carbon_sweep, fleet_map, ghg_waterfall, pareto_scatter
+from ui.utils.pdf_export import (
+    generate_summary_html,
+    generate_summary_pdf,
+    generate_technical_html,
+    generate_technical_pdf,
+)
 from ui.utils.report_data import _find_knee_solution, build_report_data
+
+
+@pytest.fixture(autouse=True)
+def _charts_to_tmp(tmp_path, monkeypatch):
+    """Keep chart PNG side effects out of the repo's charts/ directory."""
+    monkeypatch.setattr(chart_helpers, "CHARTS_DIR", tmp_path)
 
 
 # ===================================================================== #
@@ -92,27 +107,27 @@ def test_knee_and_three_options_selection() -> None:
 
 
 # ===================================================================== #
-#  3. Savings Decomposition Exact Summation Test                         #
+#  3. No predictor -> no decomposition, no per-vessel estimates          #
 # ===================================================================== #
-def test_savings_decomposition_sums_exactly() -> None:
-    """Decomposed savings levers must sum exactly to total GHG saved."""
+def test_no_predictor_means_no_fabricated_breakdown() -> None:
+    """Without a predictor the decomposition is None, never a fixed split."""
     bau = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
     bau.objectives = np.array([10_000_000.0, 58_140.0, 18_000_000.0])
-
     opt = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
     opt.objectives = np.array([9_000_000.0, 44_610.0, 16_000_000.0])
-
     fleet = {
         "vessels": [{"id": "V01", "type": "container", "dwt": 50000, "design_speed": 15.0}],
         "routes": [{"id": "R01", "distance_nm": 1000}],
     }
     data = build_report_data(solution=opt, pareto=[opt], history=None, fleet=fleet, bau=bau)
-
-    decomp = data["savings_decomposition"]
-    tot_decomp = decomp["slow_steaming_t"] + decomp["fuel_switch_t"] + decomp["shore_power_t"]
-    total_saved = 58_140.0 - 44_610.0
-
-    assert pytest.approx(total_saved, abs=1e-5) == tot_decomp
+    assert data["savings_decomposition"] is None
+    assert data["kpi_deltas"]["demand_satisfied"] is None
+    assert data["sensitivity"] is None
+    html = generate_summary_html(data)
+    assert "not available" in html
+    tech = generate_technical_html(data)
+    for fake in ("6,840", "5,420", "1,270", "sol_007", "QGF-2026-0902-001", "84%", "$85", "11%"):
+        assert fake not in html and fake not in tech, fake
 
 
 # ===================================================================== #
@@ -215,13 +230,19 @@ def test_charts_return_figures_without_error() -> None:
 
     # 3. ghg_waterfall
     data = {
-        "kpi_deltas": {"ghg_wtw": {"bau": 50000, "opt": 40000}},
-        "savings_decomposition": {"slow_steaming_t": 5000, "fuel_switch_t": 4000, "shore_power_t": 1000},
+        "savings_decomposition": {
+            "bau_t": 50000, "plan_t": 40000, "deployment_t": -500, "slow_steaming_t": 5500,
+            "fuel_switch_t": 4000, "shore_power_t": 1000, "total_reduction_t": 10000,
+        },
     }
     fig_w_simple = ghg_waterfall(data, style="simple")
     fig_w_tech = ghg_waterfall(data, style="technical")
     assert isinstance(fig_w_simple, go.Figure)
     assert isinstance(fig_w_tech, go.Figure)
+    assert list(fig_w_tech.data[0].y) == [50000, 500, -5500, -4000, -1000, 40000]
+    # Missing data -> empty-state figure, no invented bars
+    assert len(ghg_waterfall({}, style="technical").data) == 0
+    assert len(carbon_sweep(None).data) == 0
 
 
 # ===================================================================== #
@@ -259,9 +280,10 @@ def test_method_comparison_speedup_from_synthetic_csv(tmp_path) -> None:
 
     comp = data["method_comparison"]
     assert comp is not None
-    assert comp["speedup_factor"] == "1.8x"
+    assert comp["instances"][0]["speedup_vs_ga"] == pytest.approx(1.8)
     assert comp["n_seeds"] == 2
-    assert comp["hv_wins"] is True
+    assert comp["qiea_hv_best_count"] == 1
+    assert comp["hv_instances_compared"] == 1
 
 
 # ===================================================================== #
@@ -301,37 +323,145 @@ def test_method_comparison_table_omitted_when_csv_absent(tmp_path) -> None:
 
 
 # ===================================================================== #
-#  10. HV Wins Wording Switch ('Best in all' vs 'Best in most')          #
+#  10. Benchmark wording follows the CSV (slower is said plainly)        #
 # ===================================================================== #
-def test_method_comparison_hv_wins_wording_switch() -> None:
-    """Wording switches between 'Best in all test runs' and 'Best in most test runs'."""
+def test_method_comparison_reports_slower_and_losses(tmp_path) -> None:
+    csv_file = tmp_path / "bench.csv"
+    csv_file.write_text(
+        "algo,instance,seed,hv,wall_time_s\n"
+        "QIEA,M,42,0.1,20.0\nGA,M,42,1.0,10.0\n",
+        encoding="utf-8",
+    )
+    bau = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
+    bau.objectives = np.array([10_000_000.0, 50_000.0, 15_000_000.0])
+    fleet = {"vessels": [], "routes": []}
+    data = build_report_data(solution=bau, pareto=[bau], history=None, fleet=fleet, bau=bau, benchmark_csv_path=csv_file)
+    html = generate_summary_html(data)
+    assert "2.00× slower" in html
+    assert "best on 0 of 1" in html
+    assert "faster" not in html
+    tech = generate_technical_html(data)
+    assert "2.00× slower" in tech
+    assert "highest mean hypervolume on 0 of 1" in tech
+
+
+# ===================================================================== #
+#  11. Plan worse than BAU: signed increase, never "Save"                #
+# ===================================================================== #
+def test_worse_plan_renders_increase_not_savings() -> None:
     bau = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
     bau.objectives = np.array([10_000_000.0, 50_000.0, 15_000_000.0])
     opt = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
-    opt.objectives = np.array([8_500_000.0, 40_000.0, 13_000_000.0])
-    fleet = {
-        "vessels": [{"id": "V01", "type": "container", "dwt": 50000, "design_speed": 15.0}],
-        "routes": [{"id": "R01", "distance_nm": 1000}],
-    }
+    opt.objectives = np.array([11_500_000.0, 55_000.0, 16_000_000.0])
+    fleet = {"vessels": [{"id": "V01", "type": "container", "dwt": 50000}], "routes": [{"id": "R01"}]}
+    data = build_report_data(solution=opt, pareto=[opt], history=None, fleet=fleet, bau=bau)
 
-    from ui.utils.pdf_export import generate_summary_html
+    assert data["kpi_deltas"]["ghg_wtw"]["delta"] == pytest.approx(5_000.0)
+    assert data["cars_equivalent"] is None
 
-    data_all = build_report_data(solution=opt, pareto=[opt], history=None, fleet=fleet, bau=bau)
-    data_all["method_comparison"] = {
-        "speedup_factor": "1.8x",
-        "n_seeds": 5,
-        "hv_wins": True,
-    }
-    html_all = generate_summary_html(data_all)
-    assert "Best in all test runs" in html_all
-    assert "Best in most test runs" not in html_all
+    html = generate_summary_html(data)
+    assert "increase" in html
+    assert "Save" not in html and "Cut carbon" not in html and "cars" not in html
+    assert "+15.0%" in html and "+10.0%" in html
 
-    data_most = build_report_data(solution=opt, pareto=[opt], history=None, fleet=fleet, bau=bau)
-    data_most["method_comparison"] = {
-        "speedup_factor": "1.8x",
-        "n_seeds": 5,
-        "hv_wins": False,
+    tech = generate_technical_html(data)
+    assert "+$1,500,000" in tech and "+5,000 t" in tech
+    assert "−$1,500,000" not in tech
+
+
+# ===================================================================== #
+#  12. Decomposition is exact on a synthetic fleet with a stub predictor #
+# ===================================================================== #
+class _StubPredictor:
+    def predict_tpd(self, speed_kn, draft_m, weather_severity, ship_type):
+        return 0.002 * np.asarray(speed_kn, dtype=float) ** 3 + 5.0
+
+
+def _tiny_fleet() -> tuple[list[dict], list[dict]]:
+    vessels = [
+        {"id": f"V{i}", "type": t, "dwt": 60000 + 10000 * i, "capacity_teu": 3000, "design_speed": 15.0,
+         "vmin": 8.0, "vmax": 20.0, "fuel_per_nm_kg": 150.0, "fuels_allowed": ["HFO", "LNG_DIESEL", "MEOH_GREEN"],
+         "charter_per_day": 20000}
+        for i, t in enumerate(["container", "bulk", "tanker", "container"])
+    ]
+    routes = [
+        {"id": "R0", "distance_nm": 3000, "schedule_days": 20, "demand_teu": 3000, "shore_power": True,
+         "meoh_available": True},
+        {"id": "R1", "distance_nm": 5000, "schedule_days": 30, "demand_teu": 3000, "shore_power": False,
+         "meoh_available": True},
+    ]
+    return vessels, routes
+
+
+def test_decomposition_terms_sum_to_total_change() -> None:
+    vessels, routes = _tiny_fleet()
+    pred = _StubPredictor()
+    bau = compute_bau_baseline(vessels, routes, pred, DEFAULT_FUEL_PRICES)
+
+    plan = Solution(q_matrix=bau.q_matrix, speeds=np.full((4, 2), 12.0))
+    plan.observed = {
+        "assignment": np.array([[False, False], [True, False], [False, True], [False, False]]),
+        "fuel": np.array([0, 2, 1, 0]),
+        "shore_power": np.array([[False, False], [True, False], [False, False], [False, False]]),
     }
-    html_most = generate_summary_html(data_most)
-    assert "Best in most test runs" in html_most
-    assert "Best in all test runs" not in html_most
+    evaluate_violations(plan, vessels, routes)
+    evaluate_objectives(plan, vessels, routes, pred, DEFAULT_FUEL_PRICES)
+
+    data = build_report_data(
+        plan, [plan], None, {"vessels": vessels, "routes": routes}, bau,
+        predictor=pred, fuel_prices=DEFAULT_FUEL_PRICES,
+    )
+    d = data["savings_decomposition"]
+    total = d["deployment_t"] + d["slow_steaming_t"] + d["fuel_switch_t"] + d["shore_power_t"]
+    assert total == pytest.approx(d["bau_t"] - d["plan_t"], abs=1e-6)
+    assert d["bau_t"] == pytest.approx(bau.raw_objectives[1], abs=1e-6)
+    assert d["plan_t"] == pytest.approx(plan.raw_objectives[1], abs=1e-6)
+    assert d["shore_power_t"] == pytest.approx(3.0)
+
+    # Per-vessel figures come from the model and add up to the plan totals
+    deployed = [p for p in data["per_vessel_plan"] if p["route_id"] != "Reserve"]
+    assert sum(p["ghg_tco2e"] for p in deployed) == pytest.approx(plan.raw_objectives[1], abs=len(deployed))
+    assert sum(p["fuel_cost"] for p in deployed) == pytest.approx(plan.raw_objectives[0], abs=len(deployed))
+    assert all(p["cii_band"] in "ABCDE" for p in deployed)
+    assert data["constraints"]["plan"]["feasible"] == plan.feasible
+
+    tech = generate_technical_html(data)
+    assert "Deployment / assignment" in tech
+
+
+# ===================================================================== #
+#  13. Carbon sweep crossover only from data                              #
+# ===================================================================== #
+def test_no_crossover_never_prints_85() -> None:
+    sweep = pd.DataFrame({
+        "carbon_price": [0, 50, 85, 100, 200],
+        "hfo_pct": [100, 100, 90, 80, 70],
+        "lng_pct": [0, 0, 10, 20, 30],
+        "meoh_pct": [0, 0, 0, 0, 0],
+    })
+    bau = Solution(q_matrix=np.zeros((1, 2)), speeds=np.zeros((1, 1)))
+    bau.objectives = np.array([10_000_000.0, 50_000.0, 15_000_000.0])
+    fleet = {"vessels": [], "routes": []}
+    data = build_report_data(bau, [bau], None, fleet, bau, sweep_results=sweep)
+    assert data["sensitivity"]["crossover_carbon_price"] is None
+    for html in (generate_summary_html(data), generate_technical_html(data)):
+        assert "$85" not in html
+        assert "no crossover in the swept range" in html.lower()
+    assert len(carbon_sweep(sweep).layout.shapes) == 0
+
+    sweep2 = sweep.assign(hfo_pct=[100, 80, 40, 20, 0], meoh_pct=[0, 20, 40, 60, 90])
+    data2 = build_report_data(bau, [bau], None, fleet, bau, sweep_results=sweep2)
+    assert data2["sensitivity"]["crossover_carbon_price"] == 85.0
+    assert "$85" in generate_summary_html(data2)
+
+
+# ===================================================================== #
+#  14. Jargon guard leaves numbers and images untouched                   #
+# ===================================================================== #
+def test_jargon_guard_keeps_numbers_and_images() -> None:
+    from ui.utils.pdf_export import _jargon_guard
+    html = '<p>GA 12.5 qiea 3,000</p><img src="data:image/png;base64,ab/ga+wtw=">'
+    out = _jargon_guard(html)
+    assert "12.5" in out and "3,000" in out
+    assert "data:image/png;base64,ab/ga+wtw=" in out
+    assert "standard method 12.5 our optimizer 3,000" in out

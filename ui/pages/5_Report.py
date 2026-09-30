@@ -156,16 +156,25 @@ if preview_mode == "Executive Summary (Leadership)":
         # Dynamic preview
         st.markdown(f"# 🚢 QGreenFleet — Your Fleet Plan")
         st.markdown(f"**Date:** {report_data['date']} | **Fleet:** {report_data['fleet_size']} ships, {report_data['routes_count']} routes | **Report:** {report_data['report_id']}")
-        st.markdown(
-            f"""
-            ## The Bottom Line
-            > 💰 **Save ${abs(report_data['kpi_deltas']['fuel_cost']['delta']):,.0f} per year on fuel** ({abs(report_data['kpi_deltas']['fuel_cost']['delta_pct']):.1f}% less)
-            >
-            > 🌍 **Cut CO₂ by {abs(report_data['kpi_deltas']['ghg_wtw']['delta']):,.0f} tonnes per year** ({abs(report_data['kpi_deltas']['ghg_wtw']['delta_pct']):.1f}% less — like taking **{report_data['cars_equivalent']:,} cars** off the road)
-            >
-            > ✅ **All cargo still delivered on time. Nothing is late, nothing is dropped.**
-            """
-        )
+        k = report_data["kpi_deltas"]
+
+        def _line(label: str, d: dict, unit: str, money: bool) -> str:
+            if d.get("delta") is None:
+                return f"> {label}: —"
+            word = "falls" if d["delta"] < 0 else "rises"
+            amount = f"${abs(d['delta']):,.0f}" if money else f"{abs(d['delta']):,.0f} {unit}"
+            return f"> {label} {word} by **{amount}** ({d['delta_pct']:+.1f}% vs business-as-usual)"
+
+        lines = ["## The Bottom Line", _line("💰 Fuel cost", k["fuel_cost"], "", True), ">",
+                 _line("🌍 Lifecycle CO₂e", k["ghg_wtw"], "t", False)]
+        if report_data.get("cars_equivalent"):
+            lines.append(f"> (about {report_data['cars_equivalent']:,} passenger cars' annual emissions)")
+        status = report_data.get("constraints") or {}
+        if (status.get("plan") or {}).get("feasible") is True:
+            lines += [">", "> ✅ The plan meets cargo demand, schedules and every modelled constraint."]
+        elif status.get("plan"):
+            lines += [">", "> ⚠️ The plan still violates at least one constraint — see the technical report."]
+        st.markdown("\n".join(lines))
 
 else:
     st.markdown("---")
@@ -179,7 +188,7 @@ else:
         st.markdown("### 1. Executive Summary")
         kpis = report_data["kpi_deltas"]
         st.table(pd.DataFrame([
-            {"KPI": "Annual Fuel Cost", "BAU": f"${kpis['fuel_cost']['bau']:,.0f}", "Optimized": f"${kpis['fuel_cost']['opt']:,.0f}", "Delta": f"-${abs(kpis['fuel_cost']['delta']):,.0f}"},
-            {"KPI": "Lifecycle GHG (WtW)", "BAU": f"{kpis['ghg_wtw']['bau']:,.0f} t", "Optimized": f"{kpis['ghg_wtw']['opt']:,.0f} t", "Delta": f"-{abs(kpis['ghg_wtw']['delta']):,.0f} t"},
-            {"KPI": "Total OPEX", "BAU": f"${kpis['opex']['bau']:,.0f}", "Optimized": f"${kpis['opex']['opt']:,.0f}", "Delta": f"-${abs(kpis['opex']['delta']):,.0f}"},
+            {"KPI": "Fuel cost", "BAU": f"${kpis['fuel_cost']['bau']:,.0f}", "Optimized": f"${kpis['fuel_cost']['opt']:,.0f}", "Delta": f"{kpis['fuel_cost']['delta']:+,.0f} $ ({kpis['fuel_cost']['delta_pct']:+.1f}%)"},
+            {"KPI": "Lifecycle GHG (WtW)", "BAU": f"{kpis['ghg_wtw']['bau']:,.0f} t", "Optimized": f"{kpis['ghg_wtw']['opt']:,.0f} t", "Delta": f"{kpis['ghg_wtw']['delta']:+,.0f} t ({kpis['ghg_wtw']['delta_pct']:+.1f}%)"},
+            {"KPI": "Total OPEX", "BAU": f"${kpis['opex']['bau']:,.0f}", "Optimized": f"${kpis['opex']['opt']:,.0f}", "Delta": f"{kpis['opex']['delta']:+,.0f} $ ({kpis['opex']['delta_pct']:+.1f}%)"},
         ]))

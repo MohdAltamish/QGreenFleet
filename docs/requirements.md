@@ -1,5 +1,7 @@
 # Requirements Specification
 
+> **Implementation status (current code):** this is a planning document; the plan text below is kept as written. Planned but not built: QiNN / any quantum-inspired neural net (no PyTorch); exact MILP baseline (no Pyomo/HiGHS); PostgreSQL; pymoo/DEAP (all algorithms are from-scratch NumPy); EEXI; interactive route map in the React UI (only the legacy Streamlit Data page has a Folium map); docker compose; AIS data or cross-checking; emission-cap, demand-surge and shore-power-availability scenario levers. The prediction target of MAPE < 10% is **not met**: held-out ships give R² 0.524 / MAPE 26.3% (ship's own EEDI) and R² 0.348 / MAPE 34.5% (EEDI unknown). See README.md for what exists.
+
 ## Functional Requirements
 - FR1: Ingest vessel data (type, DWT, engine kW, capacity), route data (distance, ports), demand matrix
 - FR2: Train fuel prediction models: physics baseline, RF, XGBoost, QPSO-XGB, QiNN
@@ -25,6 +27,7 @@
 - Kaggle voyage-level fuel dataset — speed/load/weather granularity
 - IMO 4th GHG Study WtW emission factors — emissions library
 
-## Python dependencies (requirements.txt)
-numpy, pandas, scikit-learn, xgboost, torch, pymoo, deap, pyomo, highspy,
-fastapi, uvicorn, pydantic, streamlit, plotly, folium, pyarrow, pytest, weasyprint, pyyaml
+## Python dependencies (planned list; actual list is requirements.txt)
+Planned: numpy, pandas, scikit-learn, xgboost, torch, pymoo, deap, pyomo, highspy,
+fastapi, uvicorn, pydantic, streamlit, plotly, folium, pyarrow, pytest, weasyprint, pyyaml.
+Not in requirements.txt (not used): torch, pymoo, deap, pyomo, highspy.

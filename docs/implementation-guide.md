@@ -1,10 +1,10 @@
 # Implementation Guide (Deliverable 5)
 
 ## 1. Environment
-Python 3.11+, `pip install -r requirements.txt`. Optional: Docker (`docker compose up`).
+Python 3.11+, `pip install -r requirements.txt`. Optional: Docker (`docker build -t qgreenfleet . && docker run -p 7860:7860 qgreenfleet`; see docs/deployment.md). There is no docker compose file.
 
 ## 2. Data setup
-1. Download MRV CSV → `data/raw/mrv.csv`; Kaggle voyage CSV → `data/raw/voyages.csv`
+1. Download MRV Excel exports → `data/raw/mrv_<year>.xlsx` (the shipped model uses 2022 and 2023); Kaggle ship performance CSV → `data/raw/ship_performance.csv`
 2. `python -m src.data.prepare` → cleaned Parquet in `data/processed/`
 3. `python -m src.data.generate_synthetic --vessels 20 --routes 5 --seed 42`
 
@@ -19,7 +19,7 @@ Python 3.11+, `pip install -r requirements.txt`. Optional: Docker (`docker compo
 `python -m src.benchmark.run_all --config configs/benchmark.yaml`
 
 ## 6. UI / API
-`streamlit run ui/app.py` (UI) · `uvicorn src.api.main:app` (API, docs at /docs)
+`make dev` (FastAPI on :8000 + React on :5173; API docs at /docs) · older Streamlit app: `make demo`
 
 ## 7. Config reference (configs/*.yaml)
 ```yaml
@@ -37,4 +37,4 @@ seed: 42
 ## 8. Extending
 - New fuel: add row in `src/emissions/factors.py`
 - New constraint: implement in `constraints.py` + register in `evaluate_all`
-- New baseline: subclass `benchmark.baselines.Baseline`
+- New baseline: add a class with a `run(...)` method in `src/benchmark/baselines.py` (like `GeneticAlgorithm`, `MOPSO`, `SimulatedAnnealing`) and register it in `src/benchmark/run_all.py`

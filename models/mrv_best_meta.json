@@ -1,89 +1,94 @@
 {
   "model_type": "QPSO-XGBoost",
-  "dataset": "EU MRV THETIS (21,622 records, 13,820 unique IMO vessels)",
+  "dataset": "EU MRV THETIS (21,622 ship-years, ship-level 80/20 split)",
   "train_samples": 17320,
   "test_samples": 4302,
+  "target": "fuel_per_nm_kg",
+  "target_transform": "log1p",
+  "monotone_constraints": "(1,1,0,0,0,0)",
   "test_metrics": {
-    "rmse": 44.345923938216764,
-    "mape": 28.50307146139224,
-    "r2": 0.5424682014061228
+    "rmse": 45.23460620301596,
+    "mape": 26.269582167838767,
+    "r2": 0.5239467929698294
+  },
+  "fleet_inference_metrics": {
+    "rmse": 52.92837240535298,
+    "mape": 34.45121455963535,
+    "r2": 0.3482351335226347
+  },
+  "category_median_baseline_metrics": {
+    "rmse": 57.38699992934187,
+    "mape": 36.94947942509573,
+    "r2": 0.23380218313706802
   },
   "default_xgb_metrics": {
-    "rmse": 45.25388256303747,
-    "mape": 28.664833502409497,
-    "r2": 0.523540974105045
+    "rmse": 45.34661736966633,
+    "mape": 26.46602004776229,
+    "r2": 0.5215862420614303
   },
   "cv_5fold": {
-    "rmse_mean": 49.52555214550682,
-    "rmse_std": 2.0036936823506593
+    "rmse_mean": 51.21384286334624,
+    "rmse_std": 4.324740166474427,
+    "grouped_by": "imo"
   },
   "per_category": {
     "container": {
-      "rmse": 63.37894974364621,
-      "mape": 38.823722537985006,
-      "r2": 0.43838161676599363
+      "rmse": 64.9099347400749,
+      "mape": 35.06843982435587,
+      "r2": 0.41092094215987285
     },
     "bulk": {
-      "rmse": 23.49579231344868,
-      "mape": 20.622062065617968,
-      "r2": 0.3957104495086866
+      "rmse": 24.99232800326548,
+      "mape": 21.019162565901677,
+      "r2": 0.3162799447851937
     },
     "tanker": {
-      "rmse": 52.75438537432769,
-      "mape": 33.565510361566425,
-      "r2": 0.3493905265776944
+      "rmse": 53.076126001058874,
+      "mape": 28.746887005606435,
+      "r2": 0.34143039868116165
     }
   },
   "hyperparameters": {
-    "learning_rate": 0.025420537828087324,
-    "max_depth": 7,
-    "subsample": 0.7807484076683175,
-    "colsample_bytree": 0.9021346219688454,
-    "n_estimators": 184,
-    "min_child_weight": 9
+    "learning_rate": 0.03144778702058709,
+    "max_depth": 6,
+    "subsample": 0.919915656492472,
+    "colsample_bytree": 1.0,
+    "n_estimators": 206,
+    "min_child_weight": 4
   },
   "feature_names": [
     "avg_speed_kn",
     "speed_cubed",
     "eedi_value",
-    "laden_ratio",
-    "fuel_per_dwt_nm",
     "category_bulk",
     "category_container",
     "category_tanker"
   ],
   "category_imputations": {
     "bulk": {
-      "eedi_value": 5.23,
-      "laden_ratio": 0.7950086614606248,
-      "fuel_per_dwt_nm": 6.71
+      "eedi_value": 5.23
     },
     "container": {
-      "eedi_value": 17.240000000000002,
-      "laden_ratio": 0.9524908599399167,
-      "fuel_per_dwt_nm": 11.370000000000001
+      "eedi_value": 17.240000000000002
     },
     "tanker": {
-      "eedi_value": 5.51,
-      "laden_ratio": 0.6157448309210359,
-      "fuel_per_dwt_nm": 0.92
+      "eedi_value": 5.51
     }
   },
+  "reference_speed_kn": {
+    "bulk": 10.952231468783513,
+    "container": 13.335932914080836,
+    "tanker": 11.27838099793474
+  },
   "fleet_defaults": {
-    "container": {
-      "eedi_value": 17.240000000000002,
-      "laden_ratio": 0.75,
-      "fuel_per_dwt_nm": 0.003
-    },
     "bulk": {
-      "eedi_value": 5.23,
-      "laden_ratio": 0.5,
-      "fuel_per_dwt_nm": 0.002
+      "eedi_value": 5.23
+    },
+    "container": {
+      "eedi_value": 17.240000000000002
     },
     "tanker": {
-      "eedi_value": 5.51,
-      "laden_ratio": 0.5,
-      "fuel_per_dwt_nm": 0.0025
+      "eedi_value": 5.51
     }
   }
 }

@@ -1,5 +1,6 @@
 """Generate clean, publication-grade architectural and data trust diagrams."""
 
+import json
 from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -7,6 +8,15 @@ import matplotlib.patches as patches
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
 charts_dir = _PROJECT_ROOT / "charts"
 charts_dir.mkdir(parents=True, exist_ok=True)
+
+
+def _mrv_r2() -> str:
+    """Held-out R² of the committed EU MRV model, read from its metadata."""
+    meta = _PROJECT_ROOT / "models" / "mrv_best_meta.json"
+    try:
+        return f"{json.loads(meta.read_text())['test_metrics']['r2']:.2f}"
+    except (OSError, KeyError, ValueError):
+        return "n/a"
 
 
 def generate_architecture_diagram(out_path: Path) -> None:
@@ -35,7 +45,7 @@ def generate_architecture_diagram(out_path: Path) -> None:
     r2 = patches.FancyBboxPatch((3.8, 3.5), 2.9, 3.2, boxstyle="round,pad=0.2,rounding_size=0.15", facecolor=c_pred, edgecolor=b_pred, lw=2)
     ax.add_patch(r2)
     ax.text(5.25, 6.3, "2. TWO-STAGE SURROGATE", fontsize=11, fontweight="bold", color=b_pred, ha="center")
-    ax.text(5.25, 5.7, "• Macro Stage (MRV Best)\n  Ship-Level XGBoost (R² 0.53)\n  Zero-Leakage IMO Partition\n• Micro Stage (Voyage Adjust)\n  Hydrodynamic Draft & Weather\n  Clipping: [0.7, 1.3]", fontsize=9, color="#2c3e50", ha="center", va="top")
+    ax.text(5.25, 5.7, f"• Learned level (EU MRV)\n  QPSO-XGBoost, held-out R² {_mrv_r2()}\n  Ship-level train/test split\n• Physics\n  Admiralty law v³ + part load\n  Draft & sea-margin rules", fontsize=9, color="#2c3e50", ha="center", va="top")
 
     # Box 3: Quantum Optimization
     r3 = patches.FancyBboxPatch((7.2, 3.5), 3.0, 3.2, boxstyle="round,pad=0.2,rounding_size=0.15", facecolor=c_opt, edgecolor=b_opt, lw=2)
@@ -80,10 +90,10 @@ def generate_data_trust_diagram(out_path: Path) -> None:
     b_step = "#16a085"
 
     steps = [
-        ("1. Statutory Data Ingestion", "• 21,622 Annual Vessel Reports\n• EU MRV THETIS Verification\n• Statutory CO₂ & Fuel Returns\n• Cross-Checked vs AIS Tracks"),
+        ("1. Statutory Data Ingestion", "• 21,622 Annual Vessel Reports\n• EU MRV THETIS (verified)\n• Statutory CO₂ & Fuel Returns\n• Parse-artefact EEDI removed"),
         ("2. Anti-Leakage Partition", "• Grouped Strictly by IMO ID\n• Zero Ship Overlap (Train/Test)\n• Stratified by Naval Category\n• Prevents Memorization Bias"),
-        ("3. Physics Conformance", "• Admiralty Law Verification\n  P ∝ v³ Resistance Scaling\n• Per-Category Imputations\n• Draft & Weather Bounding"),
-        ("4. Operational Assurance", "• Out-of-Fold Cross Validation\n• Multi-Objective Fair Budgeting\n• Jargon Guard Executive Check\n• Production Reproducibility"),
+        ("3. Physics Conformance", "• Admiralty Law for Speed\n  Fuel/day ∝ v³ (+ part load)\n• Monotone Speed Constraints\n• Draft & Weather Bounding"),
+        ("4. Operational Assurance", "• Ship-Grouped Cross Validation\n• Equal Budgets in Benchmarks\n• Seeded, Config-Driven Runs\n• Reports Built From Outputs"),
     ]
 
     x_positions = [0.6, 3.4, 6.2, 9.0]

@@ -160,7 +160,13 @@ export default function Overview({ health }) {
             <dt>Baseline solve time</dt>
             <dd className="mono">{baseline?.elapsed_seconds ? seconds(baseline.elapsed_seconds) : '—'}</dd>
             <dt>QIEA wall-clock vs GA</dt>
-            <dd className="mono">{data.optimizer_speedup_vs_ga ? `${data.optimizer_speedup_vs_ga}× faster` : '—'}</dd>
+            <dd className="mono">
+              {data.optimizer_speedup_vs_ga
+                ? data.optimizer_speedup_vs_ga >= 1
+                  ? `${num(data.optimizer_speedup_vs_ga, 2)}× faster`
+                  : `${num(1 / data.optimizer_speedup_vs_ga, 2)}× slower`
+                : '—'}
+            </dd>
             <dt>Optimizer fuels</dt>
             <dd>{data.fuels.map(fuelLabel).join(', ')}</dd>
           </dl>
@@ -307,7 +313,7 @@ function ConfidenceGauge({ predictor }) {
       level={level}
       note={
         <>
-          Surrogate test MAPE <span className="mono">{num(mape, 1)}%</span>
+          Fuel model MAPE <span className="mono">{num(mape, 1)}%</span> on held-out EU MRV ships, EEDI unknown
           {r2 != null && (
             <>
               {' '}

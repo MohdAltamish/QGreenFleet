@@ -1,0 +1,17 @@
+# Keep the image small: nothing here is needed at runtime.
+.git
+.venv
+venv
+**/__pycache__
+.pytest_cache
+.cache
+.streamlit/secrets.toml
+.streamlit/credentials.toml
+frontend/node_modules
+frontend/dist
+frontend/dist-static
+data/raw
+outputs/benchmark_archives
+outputs/archives
+notebooks
+**/.DS_Store

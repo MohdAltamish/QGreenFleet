@@ -115,8 +115,8 @@ export default function Benchmark() {
             <div className="grid grid--kpi">
               <StatTile
                 label="QIEA wall-clock vs NSGA-II"
-                value={headline?.speedup ? `${num(headline.speedup, 2)}×` : '—'}
-                unit={headline?.speedup ? 'faster' : undefined}
+                value={headline?.speedup ? `${num(headline.speedup >= 1 ? headline.speedup : 1 / headline.speedup, 2)}×` : '—'}
+                unit={headline?.speedup ? (headline.speedup >= 1 ? 'faster' : 'slower') : undefined}
                 foot="Mean across every instance and seed"
               />
               <StatTile
@@ -270,9 +270,8 @@ function archiveInsight(rows) {
 }
 
 /**
- * State the benchmark honestly: on these committed results NSGA-II attains the
- * higher hypervolume, and QIEA's advantage is wall-clock time with a much
- * tighter archive. Reporting it as a clean win would misread the CSV.
+ * When QIEA does not have the best hypervolume everywhere, say which algorithm
+ * does, per instance — read from the CSV, never asserted.
  */
 function HypervolumeNote({ headline }) {
   if (!headline || headline.qieaHvWins >= headline.instanceCount) return null
@@ -283,10 +282,9 @@ function HypervolumeNote({ headline }) {
     <div className="note">
       <Icon name="info" size={18} className="note__icon" />
       <span>
-        <strong>QIEA leads on time, not on hypervolume here.</strong> On these committed results the
-        highest mean hypervolume per instance is {winners}. QIEA finishes faster and keeps a far smaller
-        archive — it converges to a tight cluster instead of spreading a broad front, which is why its
-        archive-size column sits near 1.
+        <strong>QIEA does not have the best hypervolume on every instance.</strong> Highest mean
+        hypervolume per instance: {winners}. Compare wall-clock time and archive size below before
+        drawing a conclusion.
       </span>
     </div>
   )

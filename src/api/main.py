@@ -9,6 +9,8 @@ artifacts. Run with::
 
 from __future__ import annotations
 
+import os
+
 import json
 from typing import Any
 
@@ -46,11 +48,14 @@ app = FastAPI(
     ),
 )
 
-# The dev frontend runs on a different origin (Vite on :5173), so CORS is
-# required. Tightened to localhost origins rather than a blanket wildcard.
+# The dev frontend (Vite on :5173) and a separately hosted frontend (Vercel)
+# run on other origins, so CORS is required: localhost, *.vercel.app, plus any
+# exact origins listed in CORS_ORIGINS (comma-separated) — never a wildcard.
+_EXTRA_ORIGINS = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_origins=_EXTRA_ORIGINS,
+    allow_origin_regex=r"^(http://(localhost|127\.0\.0\.1)(:\d+)?|https://[a-z0-9-]+\.vercel\.app)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -501,3 +506,21 @@ def get_chart(name: str) -> FileResponse:
         if candidate.parent == directory.resolve() and candidate.exists():
             return FileResponse(candidate, media_type="image/png")
     raise HTTPException(status_code=404, detail=f"Figure '{name}' not found.")
+
+
+# --------------------------------------------------------------------------- #
+#  Built React app (frontend/dist), so one process serves the whole product.  #
+#  Registered last: every /api route above wins over this catch-all.          #
+# --------------------------------------------------------------------------- #
+if paths.FRONTEND_DIST.is_dir():
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_frontend(full_path: str) -> FileResponse:
+        """Serve a built asset, or index.html for client-side routes."""
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not found.")
+        dist = paths.FRONTEND_DIST.resolve()
+        candidate = (dist / full_path).resolve()
+        if full_path and candidate.is_file() and dist in candidate.parents:
+            return FileResponse(candidate)
+        return FileResponse(dist / "index.html")

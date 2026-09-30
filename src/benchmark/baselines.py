@@ -30,7 +30,7 @@ from src.optimization.pareto import (
     fast_nondominated_sort,
     update_archive,
 )
-from src.optimization.qiea import compute_hypervolume
+from src.optimization.qiea import compute_hypervolume, hypervolume_bounds
 
 
 def _sigmoid(x: np.ndarray | float) -> np.ndarray | float:
@@ -145,6 +145,7 @@ class GeneticAlgorithm:
             evaluate_objectives(sol, vessels, routes, predictor, fuel_prices, carbon_price, pen)
 
         archive = update_archive([], population, max_size=archive_max)
+        hv_ideal, hv_ref = hypervolume_bounds(population)
         history: dict[str, list[Any]] = {
             "generation": [],
             "hypervolume": [],
@@ -229,7 +230,7 @@ class GeneticAlgorithm:
             population = new_pop
             archive = update_archive(archive, population, max_size=archive_max)
 
-            hv = compute_hypervolume(archive)
+            hv = compute_hypervolume(archive, reference_point=hv_ref, ideal_point=hv_ideal)
             feas_cnt = sum(1 for s in population if s.feasible)
             history["generation"].append(g)
             history["hypervolume"].append(hv)
@@ -297,6 +298,7 @@ class MOPSO:
             pbest_objs[i] = sol.objectives.copy()
 
         archive = update_archive([], population, max_size=archive_max)
+        hv_ideal, hv_ref = hypervolume_bounds(population)
         history: dict[str, list[Any]] = {
             "generation": [],
             "hypervolume": [],
@@ -368,7 +370,7 @@ class MOPSO:
                     pbest_speeds[i] = sol.speeds.copy()
 
             archive = update_archive(archive, population, max_size=archive_max)
-            hv = compute_hypervolume(archive)
+            hv = compute_hypervolume(archive, reference_point=hv_ref, ideal_point=hv_ideal)
             feas_cnt = sum(1 for s in population if s.feasible)
             history["generation"].append(g)
             history["hypervolume"].append(hv)
@@ -433,6 +435,7 @@ class SimulatedAnnealing:
         curr_cost = scalarize(curr_sol.objectives)
         best_sol = curr_sol
         archive = [curr_sol]
+        hv_ideal, hv_ref = hypervolume_bounds([curr_sol])
 
         history: dict[str, list[Any]] = {
             "generation": [],
@@ -482,7 +485,7 @@ class SimulatedAnnealing:
 
             # Log generational snapshot every pop_size evaluations
             if eval_count % pop_size == 0 or step == total_evals - 1:
-                hv = compute_hypervolume(archive)
+                hv = compute_hypervolume(archive, reference_point=hv_ref, ideal_point=hv_ideal)
                 history["generation"].append(gen_idx)
                 history["hypervolume"].append(hv)
                 history["feasible_count"].append(1 if curr_sol.feasible else 0)

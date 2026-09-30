@@ -334,7 +334,8 @@ def run_post_pass(
             if not df.empty:
                 mask = (df["algo"] == algo) & (df["instance"] == inst) & (df["seed"] == seed)
                 existing = df[mask]
-                wall_time = float(existing["wall_time_s"].iloc[0]) if not existing.empty else 0.0
+                # Latest row wins: a fresh run appends after any older checkpoint.
+                wall_time = float(existing["wall_time_s"].iloc[-1]) if not existing.empty else 0.0
                 arch_size = int(existing["archive_size"].iloc[0]) if not existing.empty else len(norm_f)
                 feasible_count = int(existing["feasible_count"].iloc[0]) if (not existing.empty and "feasible_count" in existing.columns) else 0
             else:
@@ -391,7 +392,6 @@ def generate_markdown_report(
         "3. **Normalized HV**: Computed vs fixed reference point (1.1, 1.1, 1.1). Maximum possible = 1.1³ = 1.331. Values are directly comparable across instances.",
         "4. **Merged reference front**: The IGD reference is the non-dominated set of ALL normalized fronts pooled together. No algorithm serves as its own reference.",
         "5. **evals\\_to\\_95**: Derived from per-generation normalized HV history. Returns N/A if the metric saturates at initialization (no search needed) or if history is missing.",
-        "6. **Archive Diversity & Convergence Profile (Task 1 Diagnostic)**: QIEA converges onto a small set of strong compromise solutions; GA maintains broader fronts across continuous speeds. On Instance S, final population Front-0 genuinely has size 1, with near-collinear objective correlation between Cost and GHG ($r = 0.999993$).",
         "",
         "### Fair Benchmark Protocol",
         "1. **Identical Evaluation Budget**: Each algorithm executes N_eval = pop_size × generations evaluations.",
@@ -410,8 +410,9 @@ def generate_markdown_report(
             continue
 
         lines.append(f"### Fleet Instance {inst}")
-        if inst == "XL":
-            lines.append("> *Note: Instance XL evaluated across 3 seeds.*")
+        n_seeds_inst = int(sub["n_seeds"].max()) if "n_seeds" in sub.columns else None
+        if n_seeds_inst:
+            lines.append(f"> *{n_seeds_inst} seeds per algorithm.*")
             lines.append("")
 
         lines.append("| Algorithm | Archive Size | Norm HV [0–1.331] ↑ | IGD (Merged Ref) ↓ | Evals to 95% HV ↓ | Spread ↑ | Wall Time (s) |")
@@ -462,20 +463,27 @@ def generate_markdown_report(
         lines.append(f"![Instance {inst} Convergence](convergence_{inst}.png)")
         lines.append("")
 
-    # Speedup summary
-    speedup_lines = [
-        "### Execution Speedup (QIEA+QPSO vs NSGA-II GA)",
-        "",
-    ]
+    # Speed and quality comparison, QIEA vs GA — worded from the data
+    speedup_lines = ["### Wall-clock time: QIEA+QPSO vs NSGA-II GA", ""]
+    ratios: dict[str, float] = {}
+    hv_rank: dict[str, int] = {}
+    hv_winner: dict[str, str] = {}
     for inst in instances_run:
         sub = summary_df[summary_df["instance"] == inst]
         q_row = sub[sub["algo"] == "QIEA"]
         g_row = sub[sub["algo"] == "GA"]
+        if not sub.empty:
+            ordered = sub.sort_values("hv_mean", ascending=False)["algo"].tolist()
+            hv_winner[inst] = ordered[0]
+            if "QIEA" in ordered:
+                hv_rank[inst] = ordered.index("QIEA") + 1
         if not q_row.empty and not g_row.empty:
-            q_t = q_row.iloc[0]["time_mean"]
-            g_t = g_row.iloc[0]["time_mean"]
+            q_t = float(q_row.iloc[0]["time_mean"])
+            g_t = float(g_row.iloc[0]["time_mean"])
             sp = g_t / max(1e-6, q_t)
-            speedup_lines.append(f"- **Instance {inst}**: **{sp:.2f}× faster** ({q_t:.2f}s QIEA vs {g_t:.2f}s GA)")
+            ratios[inst] = sp
+            verdict = f"{sp:.2f}× faster" if sp >= 1 else f"{1 / sp:.2f}× slower"
+            speedup_lines.append(f"- **Instance {inst}**: QIEA {verdict} ({q_t:.2f}s QIEA vs {g_t:.2f}s GA)")
     speedup_lines.append("")
 
     lines.extend([
@@ -488,16 +496,27 @@ def generate_markdown_report(
         "",
     ])
     lines.extend(speedup_lines)
-    lines.extend([
-        "---",
-        "",
-        "## Key Findings",
-        "1. **Execution Speed Advantage**: QIEA+QPSO consistently outperforms classical GA in runtime, running 1.1–1.4× faster across fleet scales.",
-        "2. **Convergence Dynamics**: QIEA converges to strong compromise solutions faster; on maritime fleet problems, cost and emissions move together, so QIEA's precise convergence outperforms GA's broad spread.",
-        "3. **Fair Post-Pass Methodology**: All quality metrics are computed from unpenalized raw objectives against a unified, merged non-dominated reference front; no algorithm serves as its own IGD reference.",
-        "",
-        "**Conclusion**: QGreenFleet's quantum-inspired engine delivers 1.1–1.4× faster runtime than GA while converging to strong compromise solutions faster; on maritime fleet problems, cost and emissions move together, so QIEA's precise convergence outperforms GA's broad spread.",
-    ])
+
+    findings = ["---", "", "## Key Findings (computed from the table above)"]
+    if ratios:
+        faster = [i for i, r in ratios.items() if r >= 1]
+        slower = [i for i, r in ratios.items() if r < 1]
+        findings.append(
+            f"1. **Runtime:** QIEA is faster than GA on {len(faster)} of {len(ratios)} instances"
+            + (f" ({', '.join(faster)})" if faster else "")
+            + (f" and slower on {', '.join(slower)}" if slower else "")
+            + f"; the GA/QIEA time ratio ranges {min(ratios.values()):.2f}–{max(ratios.values()):.2f}."
+        )
+    if hv_rank:
+        n_alg = summary_df["algo"].nunique()
+        ranks = ", ".join(f"{i}: #{r} of {n_alg}" for i, r in hv_rank.items())
+        winners = ", ".join(f"{i}: {w}" for i, w in hv_winner.items())
+        findings.append(f"2. **Solution quality (normalised hypervolume):** QIEA ranks {ranks}. Best per instance — {winners}.")
+    findings.append(
+        "3. **Method:** quality metrics use unpenalised objectives of feasible solutions, normalised with bounds "
+        "shared by all algorithms, against a merged reference front."
+    )
+    lines.extend(findings)
 
     output_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"Generated report at {output_path}", flush=True)
@@ -541,6 +560,8 @@ def main() -> None:
 
     # --- Load existing checkpoint CSV to know what's already done ---
     csv_path = outputs_dir / "benchmark_results.csv"
+    if csv_path.exists() and not resume:
+        csv_path.unlink()  # a fresh run must not inherit old rows
     if csv_path.exists() and resume:
         try:
             existing_df = pd.read_csv(csv_path)
@@ -738,6 +759,7 @@ def main() -> None:
         spread_std=("spread", "std"),
         time_mean=("wall_time_s", "mean"),
         time_std=("wall_time_s", "std"),
+        n_seeds=("seed", "nunique"),
     ).reset_index()
     agg_df["_ord"] = agg_df["algo"].map({"QIEA": 0, "GA": 1, "MOPSO": 2, "SA": 3})
     agg_df = agg_df.sort_values(["instance", "_ord"]).drop(columns=["_ord"])
@@ -769,7 +791,8 @@ def main() -> None:
             hv_win = "✓" if qhv >= ghv else "✗"
             if qhv < ghv:
                 hv_wins_all = False
-            print(f"  Instance {inst}: {sp:.2f}× faster | QIEA HV={qhv:.4f} vs GA HV={ghv:.4f} {hv_win}", flush=True)
+            verdict = f"{sp:.2f}× faster" if sp >= 1 else f"{1 / sp:.2f}× slower"
+            print(f"  Instance {inst}: QIEA {verdict} | QIEA HV={qhv:.4f} vs GA HV={ghv:.4f} {hv_win}", flush=True)
     print(f"\nhv_wins (QIEA best on ALL instances): {hv_wins_all}", flush=True)
     print("=" * 72, flush=True)
     print(f"Benchmark complete! Results: {csv_path}", flush=True)

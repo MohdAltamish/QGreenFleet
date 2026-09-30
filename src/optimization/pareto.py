@@ -10,6 +10,7 @@ References:
 
 from __future__ import annotations
 
+import copy
 from typing import Sequence
 
 import numpy as np
@@ -140,6 +141,11 @@ def update_archive(
 
     If front 0 exceeds max_size, solutions with highest crowding distance are kept.
 
+    The archive holds deep copies, never references into the population:
+    optimizers mutate their population in place every generation (observe,
+    repair, rotation gates, QPSO speed updates), which would otherwise rewrite
+    archived solutions and make the archive non-elitist.
+
     Args:
         archive: Existing archive solutions.
         new_solutions: Newly evaluated candidate solutions.
@@ -156,6 +162,19 @@ def update_archive(
     # Feasibility-first filtering: only feasible solutions enter archive if any exist
     feasible_pool = [s for s in all_evaluated if s.feasible]
     pool = feasible_pool if feasible_pool else all_evaluated
+
+    # Drop exact objective-space duplicates (archive members come first, so the
+    # existing copy wins). Without this, an unchanged population member would be
+    # re-copied into the archive every generation.
+    seen: set[tuple[float, ...]] = set()
+    unique: list[Solution] = []
+    for s in pool:
+        vec = s.raw_objectives if s.raw_objectives is not None else s.objectives
+        key = tuple(np.round(np.asarray(vec, dtype=float), 6))
+        if key not in seen:
+            seen.add(key)
+            unique.append(s)
+    pool = unique
 
     objs = np.array([
         s.raw_objectives if s.raw_objectives is not None else s.objectives
@@ -174,11 +193,18 @@ def update_archive(
         pool[idx].rank = 0
 
     if len(front_0) <= max_size:
-        return [pool[idx] for idx in front_0]
+        selected_indices = list(front_0)
+    else:
+        # Truncate front 0 by crowding distance descending
+        # Replace np.inf with a very large number for sorting stability
+        finite_dist = np.where(np.isinf(distances), 1e15, distances)
+        order = np.argsort(-finite_dist)
+        selected_indices = [front_0[k] for k in order[:max_size]]
 
-    # Truncate front 0 by crowding distance descending
-    # Replace np.inf with a very large number for sorting stability
-    finite_dist = np.where(np.isinf(distances), 1e15, distances)
-    order = np.argsort(-finite_dist)
-    selected_indices = [front_0[k] for k in order[:max_size]]
-    return [pool[idx] for idx in selected_indices]
+    archive_ids = {id(s) for s in archive}
+    # Survivors already owned by the archive are private copies; only
+    # population members need copying.
+    return [
+        pool[idx] if id(pool[idx]) in archive_ids else copy.deepcopy(pool[idx])
+        for idx in selected_indices
+    ]

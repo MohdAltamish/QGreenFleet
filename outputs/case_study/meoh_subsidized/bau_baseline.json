@@ -1,15 +1,16 @@
 {
   "objectives": {
-    "fuel_cost_usd": 3168374.3416648153,
-    "ghg_wtw_tco2e": 17343.583657831918,
-    "opex_usd": 5546774.885298476
+    "fuel_cost_usd": 3078566.5438754316,
+    "ghg_wtw_tco2e": 16851.97853604969,
+    "opex_usd": 5456967.087509092
   },
   "feasible": true,
   "violations": {
     "demand_deficit": 0.0,
     "cii_excess": 0.0,
     "fuel_unavailable": 0.0,
-    "schedule_delay": 0.0
+    "schedule_delay": 0.0,
+    "vessel_overbooked": 0.0
   },
   "vessels": [
     {

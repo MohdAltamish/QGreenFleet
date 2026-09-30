@@ -5,6 +5,9 @@ Executes four realistic fleet decarbonization scenarios end-to-end:
     b) Carbon Tax: $100/t-CO2e carbon levy (EU ETS / IMO global levy)
     c) Tightened CII: 2030 emission caps (tighten annual CII limit one rating band)
     d) Green Methanol Subsidy: 20% clean fuel price reduction ($960/t)
+    e) Green Corridor (what-if): hypothetical H2/NH3 bunkering on one route and
+       dual-fuel H2/NH3 capability on the container ships — infrastructure the
+       committed fleet does not have, so hydrogen and ammonia can be evaluated
 
 Also executes a carbon-price sweep across [0, 25, 50, ..., 200] $/t to locate
 the clean fuel economic crossover tipping point.
@@ -65,12 +68,13 @@ def _serialize_solution(sol: Solution, vessels: list[dict[str, Any]], routes: li
             "vessel_id": v.get("id", f"V{v_idx:03d}"),
             "type": v.get("type", "container"),
             "route_id": r_str,
-            "speed_kn": round(spd, 2),
+            "speed_kn": round(spd, 4),  # 2 dp could drop a schedule-minimum speed below the window
             "fuel": f_name,
             "shore_power": sp_conn,
         })
 
-    objs = sol.objectives if sol.objectives is not None else np.array([0.0, 0.0, 0.0])
+    objs = sol.raw_objectives if sol.raw_objectives is not None else sol.objectives
+    objs = objs if objs is not None else np.array([0.0, 0.0, 0.0])
     return {
         "objectives": {
             "fuel_cost_usd": float(objs[0]),
@@ -102,7 +106,7 @@ def run_scenario(
 
     # 1. Compute BAU baseline
     bau_sol = compute_bau_baseline(vessels, routes, predictor, fuel_prices, carbon_price)
-    bau_objs = bau_sol.objectives if bau_sol.objectives is not None else np.array([1e7, 5e4, 2e7])
+    bau_objs = bau_sol.raw_objectives if bau_sol.raw_objectives is not None else bau_sol.objectives
     bau_fc, bau_ghg, bau_opex = float(bau_objs[0]), float(bau_objs[1]), float(bau_objs[2])
 
     # 2. Run QIEA+QPSO optimizer
@@ -125,7 +129,7 @@ def run_scenario(
 
     # 3. Identify Knee Solution
     knee_sol, knee_idx = _find_knee_solution(archive)
-    knee_objs = knee_sol.objectives if knee_sol.objectives is not None else np.array([1e7, 5e4, 2e7])
+    knee_objs = knee_sol.raw_objectives if knee_sol.raw_objectives is not None else knee_sol.objectives
     knee_fc, knee_ghg, knee_opex = float(knee_objs[0]), float(knee_objs[1]), float(knee_objs[2])
 
     # 4. Deltas & Operational Metrics
@@ -136,8 +140,11 @@ def run_scenario(
     delta_opex = knee_opex - bau_opex
     delta_opex_pct = (delta_opex / bau_opex) * 100.0 if bau_opex else 0.0
 
-    # Fuel mix & switches
-    f_indices = getattr(knee_sol, "observed", {}).get("fuel", np.zeros(len(vessels), dtype=int))
+    # Fuel mix & switches — over DEPLOYED vessels only. Idle vessels keep an
+    # unrepaired fuel bit that means nothing and would pollute the mix.
+    knee_assign = getattr(knee_sol, "observed", {}).get("assignment", np.zeros((len(vessels), len(routes)), dtype=bool))
+    deployed = knee_assign.any(axis=1)
+    f_indices = getattr(knee_sol, "observed", {}).get("fuel", np.zeros(len(vessels), dtype=int))[deployed]
     fuel_counts: dict[str, int] = {}
     switches = 0
     for idx in f_indices:
@@ -146,7 +153,8 @@ def run_scenario(
         if fn != "HFO":
             switches += 1
 
-    fuel_mix_pct = {k: round(v / len(vessels) * 100.0, 1) for k, v in fuel_counts.items()}
+    n_deployed = max(1, int(deployed.sum()))
+    fuel_mix_pct = {k: round(v / n_deployed * 100.0, 1) for k, v in fuel_counts.items()}
 
     # Average speed change vs BAU
     bau_speeds = getattr(bau_sol, "speeds", np.full((len(vessels), len(routes)), 15.0))
@@ -166,7 +174,7 @@ def run_scenario(
     # a) pareto.csv
     pareto_rows = []
     for idx, s in enumerate(archive):
-        o = s.objectives if s.objectives is not None else np.array([0, 0, 0])
+        o = s.raw_objectives if s.raw_objectives is not None else s.objectives
         pareto_rows.append({
             "solution_id": f"sol_{idx:03d}",
             "fuel_cost_usd": float(o[0]),
@@ -190,9 +198,22 @@ def run_scenario(
     (scen_dir / "history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
 
     # e) summary.json
+    bau_deployed = int(bau_sol.observed["assignment"].any(axis=1).sum())
     summary_data = {
         "scenario_name": name,
+        "carbon_price": carbon_price,
         "elapsed_seconds": round(elapsed, 2),
+        "pop_size": pop_size,
+        "generations": generations,
+        "pareto_size": len(archive),
+        "knee_feasible": bool(knee_sol.feasible),
+        "knee_violations": {k: float(v) for k, v in getattr(knee_sol, "violations", {}).items()},
+        "bau_feasible": bool(bau_sol.feasible),
+        "bau_violations": {k: float(v) for k, v in getattr(bau_sol, "violations", {}).items()},
+        "vessels_deployed": int(deployed.sum()),
+        "bau_vessels_deployed": bau_deployed,
+        "fleet_size": len(vessels),
+        "routes_count": len(routes),
         "bau_kpis": {"fuel_cost_usd": bau_fc, "ghg_wtw_tco2e": bau_ghg, "opex_usd": bau_opex},
         "knee_kpis": {"fuel_cost_usd": knee_fc, "ghg_wtw_tco2e": knee_ghg, "opex_usd": knee_opex},
         "deltas": {
@@ -213,144 +234,194 @@ def run_scenario(
     return summary_data
 
 
+def sustained_crossover(sweep_df: pd.DataFrame) -> float | None:
+    """Lowest price from which green methanol's share stays >= HFO's at every higher price.
+
+    A single noisy point where the shares happen to cross is not a crossover.
+    """
+    ok = ((sweep_df["meoh_pct"] > 0) & (sweep_df["meoh_pct"] >= sweep_df["hfo_pct"])).to_numpy()
+    prices = sweep_df["carbon_price"].to_numpy()
+    for i in range(len(ok)):
+        if ok[i:].all():
+            return float(prices[i])
+    return None
+
+
 def run_carbon_price_sweep(
     vessels: list[dict[str, Any]],
     routes: list[dict[str, Any]],
     predictor: FuelPredictor,
     output_dir: Path,
     prices: list[float] | None = None,
-) -> tuple[pd.DataFrame, float]:
-    """Execute carbon price sensitivity sweep to detect green fuel economic crossover."""
+    pop_size: int = 100,
+    generations: int = 100,
+) -> tuple[pd.DataFrame, float | None]:
+    """Carbon-price sweep: fuel shares of the deployed fleet at each price.
+
+    Every price runs with the same seed and budget, so differences between
+    prices come from the price, not from sampling noise. Returns the first price
+    at which green methanol's share of deployed ships reaches HFO's, or None
+    when that never happens inside the swept range.
+    """
     if prices is None:
         prices = [0.0, 25.0, 50.0, 75.0, 100.0, 125.0, 150.0, 175.0, 200.0]
 
-    print(f"\n{'='*70}\n[Sensitivity Analysis] Running Carbon-Price Sweep: {prices}\n{'='*70}")
+    print(f"\n{'='*70}\n[Sensitivity Analysis] Carbon-price sweep {prices} ({pop_size}x{generations})\n{'='*70}")
 
     records = []
     base_fuel_prices = {"HFO": 650.0, "LNG_DIESEL": 800.0, "MEOH_GREEN": 1200.0, "H2_GREEN": 3000.0, "NH3_GREEN": 2500.0}
 
-    crossover_price = 85.0  # default fallback
-
     for c_price in prices:
         cfg = {
-            "pop_size": 40,
-            "generations": 30,
+            "pop_size": pop_size,
+            "generations": generations,
             "theta_start": 0.05 * np.pi,
             "theta_end": 0.005 * np.pi,
             "mutation_prob": 0.02,
             "lambda0": 10.0,
             "fuel_prices": base_fuel_prices,
             "carbon_price": c_price,
-            "archive_max": 40,
-            "seed": int(42 + c_price),
+            "archive_max": 100,
+            "seed": 42,
         }
         arch, _ = run_qiea(vessels, routes, cfg, predictor)
         knee_s, _ = _find_knee_solution(arch)
 
-        f_indices = getattr(knee_s, "observed", {}).get("fuel", np.zeros(len(vessels), dtype=int))
-        hfo_cnt = sum(1 for idx in f_indices if idx == 0)
-        lng_cnt = sum(1 for idx in f_indices if idx == 1)
-        meoh_cnt = sum(1 for idx in f_indices if idx == 2)
+        obs = getattr(knee_s, "observed", {})
+        deployed = obs.get("assignment", np.zeros((len(vessels), len(routes)), dtype=bool)).any(axis=1)
+        f_indices = obs.get("fuel", np.zeros(len(vessels), dtype=int))[deployed]
         tot = max(1, len(f_indices))
-
-        hfo_p = round(hfo_cnt / tot * 100.0, 1)
-        lng_p = round(lng_cnt / tot * 100.0, 1)
-        meoh_p = round(meoh_cnt / tot * 100.0, 1)
+        share = lambda i: round(float(np.sum(f_indices == i)) / tot * 100.0, 1)  # noqa: E731
+        raw = knee_s.raw_objectives if knee_s.raw_objectives is not None else knee_s.objectives
 
         records.append({
             "carbon_price": c_price,
-            "hfo_pct": hfo_p,
-            "lng_pct": lng_p,
-            "meoh_pct": meoh_p,
+            "hfo_pct": share(0),
+            "lng_pct": share(1),
+            "meoh_pct": share(2),
+            "vessels_deployed": int(deployed.sum()),
+            "ghg_wtw_tco2e": float(raw[1]),
+            "opex_usd": float(raw[2]),
         })
-        print(f"Tax: ${c_price:03.0f}/t-CO2e | HFO: {hfo_p}% | LNG: {lng_p}% | Green Methanol: {meoh_p}%")
+        print(f"Carbon ${c_price:03.0f}/t | HFO {share(0)}% | LNG {share(1)}% | MeOH {share(2)}% of {tot} deployed")
 
     sweep_df = pd.DataFrame(records)
 
-    # Detect crossover price: where meoh_pct >= 25% or exceeds HFO
-    co_rows = sweep_df[sweep_df["meoh_pct"] >= 25.0]
-    if not co_rows.empty:
-        crossover_price = float(co_rows.iloc[0]["carbon_price"])
-    else:
-        crossover_price = 85.0
+    crossover_price = sustained_crossover(sweep_df)
 
-    # Generate and save chart
     fig_sweep = carbon_sweep(sweep_df)
     fig_to_base64_png(fig_sweep, save_filename="carbon_sweep.png")
-    # Also save to outputs directly
     out_chart = _PROJECT_ROOT / "outputs" / "carbon_sweep.png"
     fig_to_base64_png(fig_sweep, save_filename=str(out_chart))
 
     csv_out = output_dir / "carbon_sweep.csv"
     sweep_df.to_csv(csv_out, index=False)
-    print(f"Carbon sweep completed! Crossover price: ${crossover_price:.0f}/t-CO2e (Saved to {csv_out})")
-
+    print(
+        f"Carbon sweep done: "
+        + (f"methanol reaches HFO's share at ${crossover_price:.0f}/t" if crossover_price is not None else "no methanol/HFO crossover in range")
+        + f" (saved {csv_out})"
+    )
     return sweep_df, crossover_price
+
+
+def _pct(v: float) -> str:
+    return f"{v:+.1f}%"
 
 
 def write_case_study_markdown(
     summaries: list[dict[str, Any]],
-    crossover_price: float,
+    crossover_price: float | None,
     output_path: Path,
+    sweep_df: pd.DataFrame | None = None,
 ) -> None:
-    """Generate comprehensive case-study results report matching Deliverable 5 specifications."""
+    """Write the case-study report. Every number in it is read from the run results."""
+    by_name = {s["scenario_name"]: s for s in summaries}
+    first = summaries[0]
+    evals = first["pop_size"] * first["generations"]
     lines: list[str] = [
-        "# QGreenFleet Case Study & Policy Sensitivity Analysis (Deliverable 5)",
+        "# QGreenFleet Case Study Results",
         "",
-        "## Executive Summary",
-        "This case study evaluates the multi-objective quantum optimization engine on a reference commercial fleet of **20 vessels operating across 5 intercontinental route corridors**.",
-        "Four operational policy scenarios were evaluated with full algorithmic evaluation budgets (200 population × 300 generations, 60,000 evaluations):",
-        "1. **Baseline**: Standard commercial marine fuel prices under $0 carbon taxation.",
-        "2. **Carbon Tax ($100/t)**: Application of realistic maritime emission levies (EU ETS & IMO universal levy).",
-        "3. **Tightened CII (2030)**: Enforcing next-decade Carbon Intensity Indicator thresholds (+1 rating band per ship).",
-        "4. **Green Methanol Subsidy**: 20% cost reduction on green e-methanol bunkering ($960/t vs $1,200/t).",
+        "*Generated by `python -m src.case_study.run` — every figure below is computed from "
+        "`outputs/case_study/*/summary.json`; nothing is typed in by hand.*",
         "",
-        "---",
+        f"Reference fleet: {first['fleet_size']} vessels on {first['routes_count']} route corridors. "
+        f"Search budget per scenario: population {first['pop_size']} × {first['generations']} generations "
+        f"({evals:,} evaluations), seed 42.",
         "",
-        "## Comparative Scenario Results",
+        "## Recommended (knee) plan vs business-as-usual",
         "",
-        "| Scenario | Carbon Tax ($/t) | Annual Fuel Cost ($) | Δ vs BAU | Lifecycle GHG (t-CO₂e) | Δ vs BAU | Fuel Switches | Avg Speed Δ |",
-        "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |",
+        "| Scenario | Carbon price | Fuel cost | Δ vs BAU | WtW CO₂e | Δ vs BAU | OPEX Δ | Ships deployed | Fuel switches | Avg speed Δ | Feasible |",
+        "| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |",
     ]
-
     for s in summaries:
-        name = s["scenario_name"]
-        tax = 100 if "carbon" in name.lower() else 0
-        fc = s["knee_kpis"]["fuel_cost_usd"]
-        dfc_pct = s["deltas"]["fuel_cost_pct"]
-        ghg = s["knee_kpis"]["ghg_wtw_tco2e"]
-        dghg_pct = s["deltas"]["ghg_pct"]
-        sw = s["fuel_switches_count"]
-        spd = s["avg_speed_delta_kn"]
-
+        d = s["deltas"]
         lines.append(
-            f"| **{name}** | ${tax} | ${fc/1e6:.2f}M | **{dfc_pct:+.1f}%** | {ghg:,.0f} t | **{dghg_pct:+.1f}%** | {sw} ships | {spd:+.1f} kn |"
+            f"| {s['scenario_name']} | ${s['carbon_price']:.0f}/t | ${s['knee_kpis']['fuel_cost_usd']/1e6:.2f}M | "
+            f"{_pct(d['fuel_cost_pct'])} | {s['knee_kpis']['ghg_wtw_tco2e']:,.0f} t | {_pct(d['ghg_pct'])} | "
+            f"{_pct(d['opex_pct'])} | {s['vessels_deployed']} (BAU {s['bau_vessels_deployed']}) | "
+            f"{s['fuel_switches_count']} | {s['avg_speed_delta_kn']:+.2f} kn | {'yes' if s['knee_feasible'] else 'NO'} |"
         )
 
-    lines.extend([
+    lines += ["", "## Findings", ""]
+    base = by_name.get("baseline", first)
+    bd = base["deltas"]
+    verb = lambda v: "cuts" if v < 0 else "raises"  # noqa: E731
+    lines.append(
+        f"1. **Baseline.** The recommended plan {verb(bd['fuel_cost_pct'])} fuel cost by {abs(bd['fuel_cost_pct']):.1f}% "
+        f"(${abs(bd['fuel_cost_delta'])/1e6:.2f}M) and {verb(bd['ghg_pct'])} well-to-wake CO₂e by {abs(bd['ghg_pct']):.1f}% "
+        f"({abs(bd['ghg_delta']):,.0f} t) against business-as-usual, deploying {base['vessels_deployed']} ships "
+        f"at an average of {base['avg_speed_delta_kn']:+.2f} kn versus BAU speed."
+    )
+    mix = ", ".join(f"{k} {v:.0f}%" for k, v in sorted(base["fuel_mix_pct"].items(), key=lambda kv: -kv[1]))
+    lines.append(f"2. **Fuel mix of deployed ships (baseline):** {mix}.")
+    if sweep_df is not None and not sweep_df.empty:
+        lo, hi = sweep_df.iloc[0], sweep_df.iloc[-1]
+        cross = (
+            f"from ${crossover_price:.0f}/t-CO₂e upward, green methanol's share of deployed ships stays at or above HFO's"
+            if crossover_price is not None
+            else "there is no sustained crossover — green methanol's share never stays at or above HFO's across the rest of the range"
+        )
+        lines.append(
+            f"3. **Carbon price sweep (${lo['carbon_price']:.0f}–${hi['carbon_price']:.0f}/t):** {cross}. "
+            f"Methanol share goes {lo['meoh_pct']:.0f}% → {hi['meoh_pct']:.0f}%, HFO {lo['hfo_pct']:.0f}% → {hi['hfo_pct']:.0f}%."
+        )
+    cii = by_name.get("cii_tightened")
+    if cii is not None:
+        same = abs(cii["knee_kpis"]["opex_usd"] - base["knee_kpis"]["opex_usd"]) < 1.0
+        lines.append(
+            "4. **Tightened CII (−11% limit):** "
+            + ("the recommended plan is unchanged — the tighter limit does not bind for this fleet at the chosen speeds."
+               if same else
+               f"the plan changes: OPEX {_pct(cii['deltas']['opex_pct'])} and CO₂e {_pct(cii['deltas']['ghg_pct'])} vs BAU; "
+               f"BAU itself {'meets' if cii['bau_feasible'] else 'violates'} the tightened limit.")
+        )
+    corridor = by_name.get("green_corridor")
+    if corridor is not None:
+        cmix = ", ".join(f"{k} {v:.0f}%" for k, v in sorted(corridor["fuel_mix_pct"].items(), key=lambda kv: -kv[1]))
+        lines.append(
+            "5. **Green corridor what-if** (hypothetical H₂/NH₃ bunkering on one route, dual-fuel container ships, "
+            f"$100/t carbon): deployed fuel mix {cmix}; CO₂e {_pct(corridor['deltas']['ghg_pct'])} and OPEX "
+            f"{_pct(corridor['deltas']['opex_pct'])} vs BAU."
+        )
+    infeasible = [s["scenario_name"] for s in summaries if not s["knee_feasible"]]
+    lines.append(
+        f"{6 if corridor is not None else 5}. **Constraints:** "
+        + ("every recommended plan meets route demand, schedules, fuel availability, vessel availability and CII."
+           if not infeasible else f"recommended plans still violating a constraint: {', '.join(infeasible)}.")
+    )
+    lines += [
         "",
-        "---",
+        "## Modelling limits",
+        "- Route demand and vessel capacity share one unit: TEU for container ships, deadweight tonnes for bulk "
+        "carriers and tankers. Treat capacity coverage as indicative across ship types.",
+        "- Hydrogen and ammonia need bunkering infrastructure and engines the committed fleet does not have; they "
+        "are only selectable in the green-corridor what-if, whose infrastructure is hypothetical.",
+        "- Fuel consumption comes from the EU MRV model with admiralty-law speed scaling; see "
+        "`outputs/mrv_model_report.md` for its measured accuracy.",
         "",
-        "## Clean Fuel Sensitivity & Economic Tipping Point",
-        f"Sensitivity analysis confirms an economic **crossover threshold of ${crossover_price:.0f}/t-CO₂e**.",
-        "At or above this carbon price, green methanol becomes cost-optimal over conventional heavy fuel oil without requiring regulatory enforcement.",
-        "",
-        "![Carbon Price Sweep](outputs/carbon_sweep.png)",
-        "",
-        "---",
-        "",
-        "## Five Key Findings (Plain Language)",
-        "1. **Slow Steaming is the Highest-ROI Abatement Lever**: Reducing cruising speed by 1.8 to 2.4 knots on transoceanic legs delivers over 50% of achievable emissions reductions at immediate negative cost (saving $1.86M in fuel).",
-        "2. **Targeted Alternative Fuel Bunkering**: Rather than converting the entire fleet at once, converting the 4 longest-voyage container vessels to green methanol cuts fleet carbon by an additional 23% with minimal capital risk.",
-        "3. **Zero Cargo Delays**: All 4 scenarios satisfy 100% of commercial route cargo demand (2,000 to 5,000 TEU per leg) within scheduled port arrival windows.",
-        "4. **Carbon Taxes Flip the Fuel Economics**: At a carbon levy of $100/t, burning standard fossil fuels becomes more expensive than bunkering green methanol, accelerating clean maritime transition.",
-        "5. **Resilient Fleet Architecture**: Under tightened 2030 IMO CII limits, the optimizer seamlessly reroutes energy-efficient vessels to high-intensity routes, maintaining 100% A–C compliance across all 20 ships.",
-        "",
-        "---",
-        "*Generated by QGreenFleet Automated Case Study Suite (SIH #26138)*",
-    ])
-
-    output_path.write_text("\n".join(lines), encoding="utf-8")
+        "![Carbon price sweep](../outputs/carbon_sweep.png)",
+    ]
+    output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"\nGenerated case study report at {output_path}")
 
 
@@ -384,11 +455,22 @@ def main() -> None:
         base_cii = float(v.get("cii_limit", 1984.0 * (dwt ** -0.489)))
         v["cii_limit"] = base_cii * 0.89  # Tighten by one rating band (11% reduction)
 
+    # Green-corridor what-if: the last route gains H2/NH3 bunkering and the
+    # container ships gain dual-fuel H2/NH3 capability. Hypothetical by design.
+    vessels_corridor = copy.deepcopy(vessels)
+    for v in vessels_corridor:
+        if v.get("type") == "container":
+            v["fuels_allowed"] = list(dict.fromkeys(list(v.get("fuels_allowed", ["HFO"])) + ["H2_GREEN", "NH3_GREEN"]))
+    routes_corridor = copy.deepcopy(routes)
+    routes_corridor[-1]["h2_available"] = True
+    routes_corridor[-1]["nh3_available"] = True
+
     scenarios_config = [
         ("baseline", vessels, routes, base_prices, 0.0),
         ("carbon_100", vessels, routes, base_prices, 100.0),
         ("cii_tightened", vessels_tightened, routes, base_prices, 0.0),
         ("meoh_subsidized", vessels, routes, subsidized_prices, 0.0),
+        ("green_corridor", vessels_corridor, routes_corridor, base_prices, 100.0),
     ]
 
     summaries = []
@@ -407,16 +489,20 @@ def main() -> None:
         summaries.append(s_res)
 
     # Carbon Price Sensitivity Sweep
-    crossover_price = 85.0
+    crossover_price: float | None = None
+    sweep_df = None
     if not args.skip_sweep:
-        sweep_df, crossover_price = run_carbon_price_sweep(vessels, routes, predictor, args.output_dir)
+        sweep_pop, sweep_gens = (30, 25) if args.fast else (100, 100)
+        sweep_df, crossover_price = run_carbon_price_sweep(
+            vessels, routes, predictor, args.output_dir, pop_size=sweep_pop, generations=sweep_gens
+        )
 
     # Write Case Study Markdown
     doc_out = _PROJECT_ROOT / "docs" / "case-study-results.md"
-    write_case_study_markdown(summaries, crossover_price, doc_out)
+    write_case_study_markdown(summaries, crossover_price, doc_out, sweep_df=sweep_df)
 
     print("\n" + "=" * 70)
-    print("All 4 Case Study Scenarios & Sensitivity Analysis Completed!")
+    print(f"All {len(summaries)} case-study scenarios and the sensitivity sweep completed.")
     print("=" * 70)
 
 

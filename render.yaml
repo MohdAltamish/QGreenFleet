@@ -2,9 +2,10 @@ services:
   - type: web
     name: qgreenfleet
     runtime: docker
+    plan: free
     dockerfilePath: ./Dockerfile
     envVars:
       - key: PORT
         value: 7860
-    healthCheckPath: /_stcore/health
+    healthCheckPath: /api/health
     autoDeploy: true

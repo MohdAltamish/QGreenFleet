@@ -1,7 +1,8 @@
 """Operational constraints evaluation and repair operators for QGreenFleet.
 
-Implements demand satisfaction (C1), schedule limits (C2/C6), fuel availability (C5),
-and Carbon Intensity Indicator (C4) constraint evaluation and greedy repair.
+Implements demand satisfaction (C1), schedule limits (C2/C6), vessel availability
+(C3), fuel availability (C5), and Carbon Intensity Indicator (C4) constraint
+evaluation and greedy repair.
 
 References:
     - docs/mathematical-model.md §Constraints C1–C6
@@ -14,6 +15,7 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from src.emissions.factors import lhv_mj_per_kg, ttw_co2_tons
 from src.optimization.individual import OPTIMIZER_FUELS, Solution
 
 
@@ -24,6 +26,31 @@ def _get_val(obj: Any, key: str, default: Any = 0.0) -> Any:
     return getattr(obj, key, default)
 
 
+# HFO reference price used only to rank vessels inside repair ($/kg).
+_REPAIR_HFO_USD_PER_KG = 0.65
+
+
+def _leg_cost_proxy(vessel: Any, route: Any) -> float:
+    """Rough cost of vessel v sailing route r at design speed (charter + HFO fuel), in $.
+
+    Used only to order candidates during repair; the real objective is computed
+    by evaluate_objectives().
+    """
+    dist = float(_get_val(route, "distance_nm", 1000.0))
+    speed = max(1.0, float(_get_val(vessel, "design_speed", 15.0)))
+    days = dist / (24.0 * speed)
+    charter = float(_get_val(vessel, "charter_per_day", 15000.0)) * days
+    fuel = float(_get_val(vessel, "fuel_per_nm_kg", 150.0)) * dist * _REPAIR_HFO_USD_PER_KG
+    return charter + fuel
+
+
+def _can_meet_schedule(vessel: Any, route: Any) -> bool:
+    """True if the vessel's vmax reaches the route's schedule-feasible speed (C2/C6)."""
+    dist = float(_get_val(route, "distance_nm", 1000.0))
+    sched_hours = max(1.0, float(_get_val(route, "schedule_days", 10.0)) * 24.0)
+    return float(_get_val(vessel, "vmax", 22.0)) >= dist / sched_hours
+
+
 def repair(
     sol: Solution,
     vessels: Sequence[Any],
@@ -32,13 +59,23 @@ def repair(
 ) -> Solution:
     """Greedily repair constraint violations on an observed Solution.
 
-    Repairs applied:
-        1. C1 Demand repair: If total vessel capacity on route r < demand,
-           greedily assign unassigned vessels with highest capacity until met.
-        2. C2/C6 Speed clipping: Clip speeds to vessel [vmin, vmax] and to
-           minimum schedule-feasible speed D_r / (T_r * 24).
-        3. Fuel availability repair: If assigned fuel is not bunkerable on all
-           assigned routes, fallback to HFO (fuel index 0).
+    Repairs applied, in order:
+        1. C3 Availability: a vessel serves at most one route per planning
+           period (available_days_v equals one route schedule window). Extra
+           routes are dropped, keeping the one where the vessel is most needed.
+        2. C1 Demand (add): while a route is short of capacity, add the cheapest
+           idle, schedule-capable vessel that closes the gap on its own, or the
+           largest one if none can.
+        3. C1 Demand (prune): drop the most expensive assigned vessels while
+           the route's demand stays met — without this, random initial
+           assignments leave capacity at many times demand.
+        4. C2/C6 Speed clipping to [max(vmin, D_r / (T_r*24)), vmax].
+        5. C5 Fuel availability: fall back to HFO when the chosen fuel is not
+           allowed on the vessel or not bunkerable on its route.
+
+    The repaired decisions are written back into observed["bits"] (Lamarckian
+    repair), so the rotation gates learn the repaired assignment rather than
+    the raw measurement.
 
     Args:
         sol: Observed Solution instance.
@@ -59,42 +96,56 @@ def repair(
     f_idx = sol.observed["fuel"].copy()
     speeds = sol.speeds.copy()
 
-    # 1. C1 Demand repair (Greedy capacity addition)
     vessel_caps = np.array([float(_get_val(v, "capacity_teu", _get_val(v, "dwt", 0.0))) for v in vessels])
+    demands = np.array([float(_get_val(r, "demand_teu", 0.0)) for r in routes])
+    cost = np.array([[_leg_cost_proxy(vessels[v], routes[r]) for r in range(R)] for v in range(V)])
+    capable = np.array([[_can_meet_schedule(vessels[v], routes[r]) for r in range(R)] for v in range(V)])
 
+    # 1. C3: at most one route per vessel. Keep the route with the largest
+    #    shortfall once the vessel is removed from it.
+    for v in range(V):
+        assigned = np.where(x[v])[0]
+        if len(assigned) <= 1:
+            continue
+        shortfall = [demands[r] - (np.sum(vessel_caps[x[:, r]]) - vessel_caps[v]) for r in assigned]
+        keep = assigned[int(np.argmax(shortfall))]
+        x[v, :] = False
+        x[v, keep] = True
+
+    # 2. C1 add: cover each route's deficit with idle capable vessels.
     for r in range(R):
-        demand = float(_get_val(routes[r], "demand_teu", 0.0))
-        assigned_cap = np.sum(vessel_caps[x[:, r]])
+        assigned_cap = float(np.sum(vessel_caps[x[:, r]]))
+        while assigned_cap < demands[r]:
+            idle = np.where(~x.any(axis=1) & capable[:, r])[0]
+            if len(idle) == 0:
+                break  # demand deficit stays and is penalised
+            gap = demands[r] - assigned_cap
+            closers = idle[vessel_caps[idle] >= gap]
+            pick = closers[np.argmin(cost[closers, r])] if len(closers) else idle[np.argmax(vessel_caps[idle])]
+            x[pick, r] = True
+            assigned_cap += vessel_caps[pick]
 
-        if assigned_cap < demand:
-            # Unassigned candidate vessels for route r
-            unassigned_indices = np.where(~x[:, r])[0]
-            if len(unassigned_indices) > 0:
-                # Sort unassigned by capacity descending
-                order = np.argsort(-vessel_caps[unassigned_indices])
-                for idx in unassigned_indices[order]:
-                    x[idx, r] = True
-                    assigned_cap += vessel_caps[idx]
-                    if assigned_cap >= demand:
-                        break
+    # 3. C1 prune: drop surplus vessels, most expensive first.
+    for r in range(R):
+        assigned = np.where(x[:, r])[0]
+        assigned_cap = float(np.sum(vessel_caps[assigned]))
+        for v in assigned[np.argsort(-cost[assigned, r])]:
+            if assigned_cap - vessel_caps[v] >= demands[r]:
+                x[v, r] = False
+                assigned_cap -= vessel_caps[v]
 
-    # 2. C2 & C6 Speed clip to [vmin, vmax] and schedule-feasible speed D_r / (T_r * 24)
+    # 4. C2 & C6: speed within [max(vmin, schedule speed), vmax]. A vessel that
+    #    cannot reach the schedule speed sails at vmax and C2 penalises it.
     for v in range(V):
         vmin = float(_get_val(vessels[v], "vmin", 8.0))
         vmax = float(_get_val(vessels[v], "vmax", 22.0))
-
         for r in range(R):
             dist = float(_get_val(routes[r], "distance_nm", 1000.0))
-            sched_days = float(_get_val(routes[r], "schedule_days", 10.0))
-            sched_hours = max(1.0, sched_days * 24.0)
-            min_sched_speed = dist / sched_hours
+            sched_hours = max(1.0, float(_get_val(routes[r], "schedule_days", 10.0)) * 24.0)
+            lo = min(max(vmin, dist / sched_hours), vmax)
+            speeds[v, r] = np.clip(speeds[v, r], lo, vmax)
 
-            # Lower bound is max(vmin, schedule-feasible speed)
-            lo = max(vmin, min_sched_speed)
-            hi = max(lo, vmax)
-            speeds[v, r] = np.clip(speeds[v, r], lo, hi)
-
-    # 3. Fuel availability repair: verify bunkerability on assigned routes
+    # 5. C5: fuel availability on the vessel and its route's ports.
     for v in range(V):
         assigned_routes = np.where(x[v, :])[0]
         if len(assigned_routes) == 0:
@@ -102,26 +153,43 @@ def repair(
 
         selected_fuel = fuels[f_idx[v]] if f_idx[v] < len(fuels) else fuels[0]
         allowed_fuels = _get_val(vessels[v], "fuels_allowed", [fuels[0]])
-
-        # Check vessel engine capability
-        is_allowed = selected_fuel in allowed_fuels
-
-        # Check route port infrastructure
-        is_bunkerable = True
-        if selected_fuel == "LNG_DIESEL":
-            is_bunkerable = all(bool(_get_val(routes[r], "lng_available", True)) for r in assigned_routes)
-        elif selected_fuel == "MEOH_GREEN":
-            is_bunkerable = all(bool(_get_val(routes[r], "meoh_available", False)) for r in assigned_routes)
-        elif selected_fuel in ("H2_GREEN", "NH3_GREEN"):
-            is_bunkerable = False  # Not yet commercial on route ports
-
-        if not (is_allowed and is_bunkerable):
+        if not (selected_fuel in allowed_fuels and _fuel_bunkerable(selected_fuel, [routes[r] for r in assigned_routes])):
             f_idx[v] = 0  # Fallback to universally available HFO
 
     sol.observed["assignment"] = x
     sol.observed["fuel"] = f_idx
     sol.speeds = speeds
+
+    # Lamarckian write-back: the rotation gates read these bits.
+    bits = sol.observed.get("bits")
+    n_fuels = len(fuels)
+    if bits is not None and len(bits) >= V * R + V * n_fuels:
+        bits = np.asarray(bits, dtype=int).copy()
+        bits[: V * R] = x.ravel().astype(int)
+        fuel_block = np.zeros((V, n_fuels), dtype=int)
+        fuel_block[np.arange(V), np.clip(f_idx, 0, n_fuels - 1)] = 1
+        bits[V * R : V * R + V * n_fuels] = fuel_block.ravel()
+        sol.observed["bits"] = bits
     return sol
+
+
+def _fuel_bunkerable(fuel: str, assigned_routes: Sequence[Any]) -> bool:
+    """C5 port infrastructure: can *fuel* be bunkered on every assigned route?
+
+    Hydrogen and ammonia need an explicit route flag (h2_available /
+    nh3_available); no route in the committed fleets sets one, so they are
+    modelled but not yet selectable there.
+    """
+    flag = {
+        "LNG_DIESEL": ("lng_available", True),
+        "MEOH_GREEN": ("meoh_available", False),
+        "H2_GREEN": ("h2_available", False),
+        "NH3_GREEN": ("nh3_available", False),
+    }.get(fuel)
+    if flag is None:
+        return True
+    key, default = flag
+    return all(bool(_get_val(r, key, default)) for r in assigned_routes)
 
 
 def evaluate_violations(
@@ -155,6 +223,7 @@ def evaluate_violations(
         "cii_excess": 0.0,
         "fuel_unavailable": 0.0,
         "schedule_delay": 0.0,
+        "vessel_overbooked": 0.0,
     }
 
     if "assignment" not in sol.observed or "fuel" not in sol.observed:
@@ -194,38 +263,38 @@ def evaluate_violations(
 
         selected_fuel = fuels[f_idx[v]] if f_idx[v] < len(fuels) else fuels[0]
         allowed_fuels = _get_val(vessels[v], "fuels_allowed", [fuels[0]])
-
-        if selected_fuel not in allowed_fuels:
+        if selected_fuel not in allowed_fuels or not _fuel_bunkerable(
+            selected_fuel, [routes[r] for r in assigned_routes]
+        ):
             violations["fuel_unavailable"] += 1.0
-            continue
 
-        if selected_fuel == "LNG_DIESEL":
-            if not all(bool(_get_val(routes[r], "lng_available", True)) for r in assigned_routes):
-                violations["fuel_unavailable"] += 1.0
-        elif selected_fuel == "MEOH_GREEN":
-            if not all(bool(_get_val(routes[r], "meoh_available", False)) for r in assigned_routes):
-                violations["fuel_unavailable"] += 1.0
-        elif selected_fuel in ("H2_GREEN", "NH3_GREEN"):
-            violations["fuel_unavailable"] += 1.0
+    # 3b. Vessel availability (Eq. C3): one route per vessel per planning period.
+    violations["vessel_overbooked"] = float(np.sum(np.maximum(0, x.sum(axis=1) - 1)))
 
     # 4. CII emissions limit check (Eq. C4)
-    # attained_CII_v = (annual_CO2_g) / (DWT_v * annual_distance_nm)
-    # Default CII limit benchmark line: 1984 * DWT^(-0.489)
+    # attained_CII_v = annual_CO2_g / (DWT_v * annual_distance_nm), with
+    # annual CO2 from the vessel's own speed and fuel: fuel per nm scales with
+    # speed^2 (admiralty law) and is converted to the chosen fuel by energy
+    # content before applying that fuel's TtW carbon factor.
     for v in range(V):
         assigned_routes = np.where(x[v, :])[0]
         if len(assigned_routes) == 0:
             continue
 
         dwt = float(_get_val(vessels[v], "dwt", 50000.0))
-        tot_dist = sum(float(_get_val(routes[r], "distance_nm", 1000.0)) for r in assigned_routes)
+        dists = np.array([float(_get_val(routes[r], "distance_nm", 1000.0)) for r in assigned_routes])
+        tot_dist = float(dists.sum())
         if tot_dist <= 0 or dwt <= 0:
             continue
 
-        # Benchmark reference line limit
         cii_limit = float(_get_val(vessels[v], "cii_limit", 1984.0 * (dwt ** -0.489)))
         fuel_rate_kg = float(_get_val(vessels[v], "fuel_per_nm_kg", 150.0))
-        # 3.114 g-CO2 per g-fuel (HFO standard carbon factor)
-        annual_co2_g = tot_dist * fuel_rate_kg * 1000.0 * 3.114
+        design = max(1.0, float(_get_val(vessels[v], "design_speed", 15.0)))
+        fuel_name = fuels[f_idx[v]] if f_idx[v] < len(fuels) else fuels[0]
+        ratio = (speeds[v, assigned_routes] / design) ** 2
+        fuel_kg_hfo_eq = float(np.sum(dists * fuel_rate_kg * ratio))
+        fuel_kg = fuel_kg_hfo_eq * lhv_mj_per_kg("HFO") / lhv_mj_per_kg(fuel_name)
+        annual_co2_g = ttw_co2_tons(fuel_name, fuel_kg) * 1000.0  # kg-fuel in -> kg CO2 -> g
         attained_cii = annual_co2_g / (dwt * tot_dist)
 
         if attained_cii > cii_limit:

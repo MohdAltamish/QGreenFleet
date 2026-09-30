@@ -2,8 +2,9 @@
 
 ## Prediction Benchmarks
 - **Evaluated Models**: Physics Baseline (Admiralty cubic), Random Forest, Default XGBoost, QPSO-Tuned XGBoost.
-- **Protocol**: 5-Fold Cross Validation + holdout 20% test partition; calibrated against 21,622 verified EU MRV THETIS annual vessel reports.
-- **Key Metric**: Physics Baseline achieved **3.256 Test RMSE** and 50.7% MAPE; QPSO-tuned XGBoost achieved **3.264 Test RMSE**, improving over default XGBoost (3.606 RMSE) by **9.8%**.
+- **Production model**: QPSO-XGBoost on EU MRV THETIS 2022–2023 (21,622 ship-years), features speed, EEDI, category; ship-grouped split (no ship in both train and test).
+- **Held-out ships**: R² 0.524, MAPE 26.3% (ship's own EEDI); EEDI unknown: R² 0.348, MAPE 34.5%; naive category median: R² 0.234, MAPE 36.9%. The PRD target of MAPE < 10% is not met.
+- The Kaggle voyage dataset has no learnable signal (all stage-2 models R² ≤ 0), so draft and weather are rule-based factors, not learned.
 
 ## Optimization Benchmarks
 - **Competitors**:
@@ -14,33 +15,10 @@
 - **Fair Protocol**: All algorithms share identical function evaluation budgets, demand repair (`repair()`), CII constraint validation, and penalty functions.
 - **Fleet Instances Evaluated**:
   - **Instance S**: 5 vessels, 3 routes (5 random seeds)
-  - **Instance M**: 20 vessels, 5 routes (5 random seeds)
+  - **Instance M**: 20 vessels, 4 routes (5 random seeds)
   - **Instance L**: 50 vessels, 10 routes (5 random seeds)
-  - **Instance XL**: 100 vessels, 15 routes (3 random seeds)
-- **Key Findings**:
-  1. **Execution Speedup (1.1–1.4× Faster)**: QIEA+QPSO consistently outperforms classical NSGA-II GA in wall time, executing 1.1–1.4× faster across scaled fleet instances (18.6s on S, 65.9s on L, 96.9s on XL vs 137.3s GA).
-  2. **Distinct Operational Profiles**: QIEA converges to strong compromise solutions faster; on maritime fleet problems, cost and emissions move together, so QIEA's precise convergence outperforms GA's broad spread. NSGA-II GA spreads across a broader but near-equivalent region at the cost of higher runtime.
-  3. **Linear Scalability**: Execution time scales gracefully from S (18.6s) to XL (96.9s) without exponential complexity explosion.
-  4. **Fair Unified Methodology**: All quality metrics are computed via unpenalized post-pass against a shared merged non-dominated reference front; no algorithm is its own reference.
-
-### Algorithm Comparison Table (Benchmark Results)
-
-| Metric | **QIEA+QPSO (Ours)** | GA (NSGA-II) | MOPSO | SA |
-|---|---|---|---|---|
-| **Wall time — 5 vessels** | **18.6s** | 20.1s | 20.2s | 20.3s |
-| **Wall time — 20 vessels** | **79.3s** | 61.0s | 52.5s | 47.5s |
-| **Wall time — 50 vessels** | **65.9s** | 80.6s | 66.5s | 62.0s |
-| **Wall time — 100 vessels** | **96.9s** | 137.3s | 113.7s | 143.2s |
-| **Speedup vs GA** | **1.1–1.4×** | baseline | varies | varies |
-| **Solutions found** | 1–6 strong plans | ~100 near-identical | 1–3 | 1–8 |
-| **Feasibility rate** | ~80% | ~95% | ~50% | ~60% |
-| **Front geometry** | Precise, tight | Broad, near-duplicate | Scattered | Single-direction |
-| **Scales to 100 vessels** | ✅ | ✅ | ✅ | ✅ |
-| **Constraint handling** | Repair + penalty | Repair + penalty | Penalty only | Penalty only |
-| **Quantum-inspired** | ✅ | ❌ | ❌ | ❌ |
-| **Multi-objective** | ✅ True Pareto | ✅ True Pareto | Partial | ❌ Weighted sum |
-
-> *"All algorithms share identical evaluation budgets (pop × generations), repair operators, objective functions, and emission factors. Benchmark conducted on synthetic fleets calibrated to EU MRV ship statistics, carbon price $100/t. QIEA finds fewer but stronger compromise solutions because maritime cost and emissions are strongly correlated (r≈1.0) — the true Pareto front is narrow. GA populates this narrow band with ~100 near-equivalent points; QIEA locates it precisely and faster."*
+  - **Instance XL**: 100 vessels, 15 routes (5 random seeds)
+- **Results** (wall time, hypervolume, IGD, feasibility per instance): see docs/case-study-results.md and outputs/benchmark_report.md (generated from the run outputs). No results numbers are copied here because they change when the runs are regenerated.
 
 ## Reproduce
 ```bash

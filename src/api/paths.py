@@ -14,6 +14,7 @@ FLOWCHARTS = PROJECT_ROOT / "flowchart"
 MODELS = PROJECT_ROOT / "models"
 CONFIGS = PROJECT_ROOT / "configs"
 SAMPLE_REPORTS = PROJECT_ROOT / "docs" / "samples"
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
 DEFAULT_FLEET = DATA_SYNTHETIC / "fleet_20v_5r_seed42.json"
 BENCHMARK_CSV = OUTPUTS / "benchmark_results.csv"
@@ -24,6 +25,7 @@ KNOWN_SCENARIOS: tuple[str, ...] = (
     "carbon_100",
     "cii_tightened",
     "meoh_subsidized",
+    "green_corridor",
 )
 
 SCENARIO_LABELS: dict[str, str] = {
@@ -31,4 +33,5 @@ SCENARIO_LABELS: dict[str, str] = {
     "carbon_100": "Carbon price $100/t-CO₂e",
     "cii_tightened": "IMO CII bands tightened",
     "meoh_subsidized": "Green methanol subsidised",
+    "green_corridor": "Green corridor what-if (H₂/NH₃)",
 }

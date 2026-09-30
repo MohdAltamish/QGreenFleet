@@ -2,12 +2,12 @@
 
 ## Layers
 1. **Data Layer** — loaders for MRV/Kaggle CSVs, synthetic generator, Parquet cache. (`src/data/`)
-2. **Prediction Engine** — feature pipeline → models (physics, RF, XGB, QPSO-XGB, QiNN) → registry of best model. (`src/prediction/`)
+2. **Prediction Engine** — models (physics, RF, XGB, QPSO-XGB) and the EU MRV QPSO-XGBoost model; `FuelPredictor` combines it with the admiralty speed law and rule-based draft/weather factors. (`src/prediction/`)
 3. **Emissions & Constraints Library** — WtW factors, CII calculator, constraint evaluators. (`src/emissions/`, `src/optimization/constraints.py`)
 4. **Optimization Engine** — QIEA + QPSO hybrid, NSGA-II ranking, repair operators. (`src/optimization/`)
-5. **Benchmark Module** — GA/PSO/SA/MILP runners, metrics (hypervolume, IGD), plotting. (`src/benchmark/`)
-6. **API** — FastAPI: /predict, /optimize, /scenarios, /report. (`src/api/`)
-7. **UI** — Streamlit pages: Data, Predict, Optimize, Scenarios, Reports. (`ui/`)
+5. **Benchmark Module** — GA (NSGA-II)/MOPSO/SA runners (from-scratch NumPy; no MILP), metrics (hypervolume, IGD), plotting. (`src/benchmark/`)
+6. **API** — FastAPI under `/api` (see docs/api-spec.md). (`src/api/`)
+7. **UI** — React app (`frontend/`, served by FastAPI in Docker) and the older Streamlit app with pages Data, Predict, Optimize, Scenarios, Reports (`ui/`).
 
 ## Data flow
 CSV/synthetic → feature pipeline → trained predictor ƒ(v, s, load, weather)
@@ -24,7 +24,8 @@ CSV/synthetic → feature pipeline → trained predictor ƒ(v, s, load, weather)
 qgreenfleet/
 ├── configs/           # yaml run configs
 ├── data/              # raw/, processed/, synthetic/
-├── src/{data,prediction,optimization,emissions,benchmark,api}/
+├── src/{data,prediction,optimization,emissions,benchmark,case_study,api}/
+├── frontend/          # React app
 ├── ui/
 │   ├── app.py
 │   ├── pages/         # 5 pages: Data, Predict, Optimize, Scenarios, Reports

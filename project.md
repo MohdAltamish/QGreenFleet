@@ -1,5 +1,7 @@
 # 🚢 Quantum-Inspired Fuel Consumption Prediction & Green Fleet Optimization
 
+> **Implementation status (current code):** this is a planning document; the plan text below is kept as written. Planned but not built: QiNN / any quantum-inspired neural net (no PyTorch); exact MILP baseline (no Pyomo/HiGHS); PostgreSQL; pymoo/DEAP (all algorithms are from-scratch NumPy); EEXI; interactive route map in the React UI (only the legacy Streamlit Data page has a Folium map); docker compose; AIS data or cross-checking; emission-cap, demand-surge and shore-power-availability scenario levers. The prediction target of MAPE < 10% is **not met**: held-out ships give R² 0.524 / MAPE 26.3% (ship's own EEDI) and R² 0.348 / MAPE 34.5% (EEDI unknown). See README.md for what exists.
+
 **SIH Problem ID:** 26138 | **Organization:** Egreen Quanta | **Theme:** Clean & Green Technology | **Category:** Software
 
 ---
@@ -193,12 +195,12 @@ The prediction engine feeds the optimizer: predicted fuel curves become the obje
 qgreenfleet/
 ├── data/                  # datasets + synthetic generator
 ├── src/
-│   ├── prediction/        # QiNN, QPSO-XGB, baselines
+│   ├── prediction/        # QPSO-XGB (MRV model), physics/RF/XGB baselines
 │   ├── optimization/      # qiea.py, qpso.py, pareto.py, constraints.py
 │   ├── emissions/         # WtW factor library, CII calculator
-│   ├── benchmark/         # GA/PSO/SA/MILP baselines, metrics
+│   ├── benchmark/         # GA (NSGA-II)/MOPSO/SA baselines, metrics
 │   └── api/               # FastAPI app
-├── ui/                    # Streamlit / React frontend
+├── ui/                    # Streamlit app (React app is in frontend/)
 ├── notebooks/             # EDA, experiments
 ├── tests/
 ├── docs/

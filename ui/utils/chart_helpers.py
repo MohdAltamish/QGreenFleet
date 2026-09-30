@@ -40,6 +40,40 @@ import pandas as pd
 import plotly.graph_objects as go
 
 
+def _empty(title: str, message: str = "No data") -> go.Figure:
+    """Empty-state figure used whenever the real data for a chart is missing."""
+    fig = go.Figure()
+    fig.add_annotation(text=message, x=0.5, y=0.5, xref="paper", yref="paper", showarrow=False, font=dict(size=16))
+    fig.update_layout(
+        title=f"{title} — {message}",
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+        template="plotly_white",
+    )
+    return fig
+
+
+def sweep_crossover(series: dict[str, Any] | pd.DataFrame | None) -> float | None:
+    """Lowest swept price from which green methanol's share stays > 0 and >= HFO's at every higher price.
+
+    A single noisy point where the shares happen to cross is not reported.
+    """
+    if series is None:
+        return None
+    try:
+        prices = list(series["carbon_price"])
+        hfo = list(series["hfo_pct"])
+        meoh = list(series["meoh_pct"])
+    except (KeyError, TypeError):
+        return None
+    rows = sorted(zip(prices, hfo, meoh))
+    ok = [m is not None and h is not None and m > 0 and m >= h for _, h, m in rows]
+    for i in range(len(rows)):
+        if all(ok[i:]):
+            return float(rows[i][0])
+    return None
+
+
 # ===================================================================== #
 #  Image Rasterization Helper                                            #
 # ===================================================================== #
@@ -121,22 +155,15 @@ def fig_to_base64_png(
 # ===================================================================== #
 def kpi_bars(data: dict[str, Any]) -> go.Figure:
     """Render side-by-side grouped bar chart comparing BAU vs Optimized KPIs."""
-    kpis = data.get("kpi_deltas", {})
-    fc = kpis.get("fuel_cost", {"bau": 11.48, "opt": 9.62})
-    ghg = kpis.get("ghg_wtw", {"bau": 58.14, "opt": 44.61})
-    opex = kpis.get("opex", {"bau": 18.93, "opt": 17.11})
+    kpis = data.get("kpi_deltas") or {}
+    parts = [kpis.get("fuel_cost") or {}, kpis.get("ghg_wtw") or {}, kpis.get("opex") or {}]
+    if any(p.get("bau") is None or p.get("opt") is None for p in parts):
+        return _empty("Fleet Performance: BAU vs Recommended Plan")
 
     categories = ["Fuel Cost ($M)", "WtW GHG (kt-CO₂e)", "Total OPEX ($M)"]
-    bau_vals = [
-        fc["bau"] / 1e6 if fc["bau"] > 1000 else fc["bau"],
-        ghg["bau"] / 1000 if ghg["bau"] > 1000 else ghg["bau"],
-        opex["bau"] / 1e6 if opex["bau"] > 1000 else opex["bau"],
-    ]
-    opt_vals = [
-        fc["opt"] / 1e6 if fc["opt"] > 1000 else fc["opt"],
-        ghg["opt"] / 1000 if ghg["opt"] > 1000 else ghg["opt"],
-        opex["opt"] / 1e6 if opex["opt"] > 1000 else opex["opt"],
-    ]
+    scale = (1e6, 1e3, 1e6)
+    bau_vals = [p["bau"] / k for p, k in zip(parts, scale)]
+    opt_vals = [p["opt"] / k for p, k in zip(parts, scale)]
 
     fig = go.Figure(data=[
         go.Bar(name="BAU Fleet (Today)", x=categories, y=bau_vals, marker_color="#8892b0"),
@@ -147,7 +174,7 @@ def kpi_bars(data: dict[str, Any]) -> go.Figure:
         barmode="group",
         title="Fleet Performance: Today (BAU) vs Recommended Plan",
         xaxis_title="Performance Dimension",
-        yaxis_title="Normalized Scale ($M / kt-CO₂e)",
+        yaxis_title="$M / kt-CO₂e",
         template="plotly_white",
         legend=dict(x=0.7, y=1.1, orientation="h"),
     )
@@ -159,14 +186,11 @@ def kpi_bars(data: dict[str, Any]) -> go.Figure:
 # ===================================================================== #
 def pareto_scatter(pareto_df: pd.DataFrame, knee_id: str | None = None) -> go.Figure:
     """Render 3-objective Pareto scatter plot: X=Cost, Y=GHG, Size=OPEX."""
-    df = pareto_df.copy()
+    df = pareto_df.copy() if pareto_df is not None else pd.DataFrame()
+    if df.empty or not {"fuel_cost_usd", "ghg_wtw_tco2e", "opex_usd"}.issubset(df.columns):
+        return _empty("Fleet Pareto Frontier")
     if "solution_id" not in df.columns:
         df["solution_id"] = [str(row.get("name", f"sol_{i:03d}")) for i, row in df.iterrows()]
-
-    if "fuel_cost_usd" not in df.columns:
-        df["fuel_cost_usd"] = [9.04e6, 9.62e6, 10.97e6]
-        df["ghg_wtw_tco2e"] = [51780, 44610, 40320]
-        df["opex_usd"] = [16.41e6, 17.11e6, 18.65e6]
 
     x_cost = df["fuel_cost_usd"] / 1e6
     y_ghg = df["ghg_wtw_tco2e"] / 1000
@@ -212,29 +236,25 @@ def pareto_scatter(pareto_df: pd.DataFrame, knee_id: str | None = None) -> go.Fi
 #  3. GHG Emissions Waterfall                                            #
 # ===================================================================== #
 def ghg_waterfall(data: dict[str, Any], style: str = "technical") -> go.Figure:
-    """Render emissions abatement waterfall from BAU to Optimized."""
-    decomp = data.get("savings_decomposition", {
-        "slow_steaming_t": 6840.0,
-        "fuel_switch_t": 5420.0,
-        "shore_power_t": 1270.0,
-    })
-    kpis = data.get("kpi_deltas", {})
-    bau_ghg = kpis.get("ghg_wtw", {}).get("bau", 58140.0)
-    opt_ghg = kpis.get("ghg_wtw", {}).get("opt", 44610.0)
+    """Render the exact GHG attribution BAU -> plan (see report_data._decompose_ghg).
+
+    Bars: BAU total, deployment/assignment, slow steaming, fuel switching,
+    shore power, plan total. Each lever term is a reduction (positive) or an
+    increase (negative) and the terms sum exactly to BAU - plan.
+    """
+    decomp = data.get("savings_decomposition")
+    keys = ("bau_t", "deployment_t", "slow_steaming_t", "fuel_switch_t", "shore_power_t", "plan_t")
+    if not decomp or any(decomp.get(k) is None for k in keys):
+        return _empty("GHG Change by Lever (t CO₂e)")
 
     if style == "simple":
-        x_labels = ["Fleet Today", "Slower Cruising", "Green Fuels", "Port Electricity", "Recommended Plan"]
+        x_labels = ["Fleet Today", "Ship Deployment", "Speed Changes", "Fuel Changes", "Port Electricity", "Recommended Plan"]
     else:
-        x_labels = ["BAU Baseline", "Slow Steaming", "Fuel Switching", "Shore Power Credit", "Optimized Deployment"]
+        x_labels = ["BAU Baseline", "Deployment / Assignment", "Slow Steaming", "Fuel Switching", "Shore Power", "Optimized Plan"]
 
-    y_vals = [
-        bau_ghg,
-        -decomp.get("slow_steaming_t", 6840.0),
-        -decomp.get("fuel_switch_t", 5420.0),
-        -decomp.get("shore_power_t", 1270.0),
-        opt_ghg,
-    ]
-    measures = ["absolute", "relative", "relative", "relative", "total"]
+    y_vals = [decomp["bau_t"]] + [-decomp[k] for k in keys[1:5]] + [decomp["plan_t"]]
+    measures = ["absolute", "relative", "relative", "relative", "relative", "total"]
+    text = [f"{y_vals[0]:,.0f} t"] + [f"{v:+,.0f} t" for v in y_vals[1:5]] + [f"{y_vals[5]:,.0f} t"]
 
     fig = go.Figure(go.Waterfall(
         name="GHG Abatement",
@@ -242,7 +262,7 @@ def ghg_waterfall(data: dict[str, Any], style: str = "technical") -> go.Figure:
         measure=measures,
         x=x_labels,
         textposition="outside",
-        text=[f"{abs(v):,.0f} t" for v in y_vals],
+        text=text,
         y=y_vals,
         connector={"line": {"color": "rgb(63, 63, 63)"}},
         decreasing={"marker": {"color": "#27ae60"}},
@@ -251,7 +271,7 @@ def ghg_waterfall(data: dict[str, Any], style: str = "technical") -> go.Figure:
     ))
 
     fig.update_layout(
-        title="Path to Emissions Reduction (Tonnes CO₂e / Year)",
+        title="GHG Change by Lever, BAU to Plan (t CO₂e)",
         yaxis_title="Annual GHG Emissions (t-CO₂e)",
         template="plotly_white",
     )
@@ -263,9 +283,11 @@ def ghg_waterfall(data: dict[str, Any], style: str = "technical") -> go.Figure:
 # ===================================================================== #
 def fleet_map(solution: Solution | dict[str, Any], fleet: dict[str, Any]) -> go.Figure:
     """Render geographic vessel-route allocation arcs colored by assigned fuel."""
-    routes = fleet.get("routes", [])
+    routes = [r for r in fleet.get("routes", []) if r.get("from") and r.get("to")]
+    if not routes:
+        return _empty("Fleet Deployment Corridors", "No port data for these routes")
 
-    # Port coordinates catalog
+    # Port coordinates catalog (geography only)
     port_coords = {
         "Singapore": (1.290270, 103.851959),
         "Shanghai": (31.230416, 121.473701),
@@ -280,40 +302,39 @@ def fleet_map(solution: Solution | dict[str, Any], fleet: dict[str, Any]) -> go.
 
     # Draw commercial route corridors
     for r in routes:
-        p_from = r.get("from", "Singapore")
-        p_to = r.get("to", "Shanghai")
-        c1 = port_coords.get(p_from, (1.3, 103.8))
-        c2 = port_coords.get(p_to, (31.2, 121.5))
+        p_from, p_to = r["from"], r["to"]
+        if p_from not in port_coords or p_to not in port_coords:
+            continue
+        c1, c2 = port_coords[p_from], port_coords[p_to]
 
         fig.add_trace(go.Scattergeo(
             lon=[c1[1], c2[1]],
             lat=[c1[0], c2[0]],
             mode="lines",
-            line=dict(width=2.5, color="#27ae60"),
+            line=dict(width=2.5, color="#f39c12" if r.get("shore_power") else "#27ae60"),
             hoverinfo="text",
-            text=f"Route {r.get('id')}: {p_from} → {p_to} ({r.get('distance_nm')} nm)",
+            text=f"Route {r.get('id')}: {p_from} → {p_to} ({r.get('distance_nm')} nm)"
+            + (" — shore power available" if r.get("shore_power") else ""),
             showlegend=False,
         ))
 
-    # Mark ports
-    for port, (lat, lon) in port_coords.items():
-        is_shore_power = port in ["Shanghai", "Rotterdam", "Los_Angeles"]
-        symbol = "star" if is_shore_power else "circle"
-        label = f"⚡ {port} (Shore Power)" if is_shore_power else port
-
+    # Mark the ports these routes use
+    used = {p for r in routes for p in (r["from"], r["to"]) if p in port_coords}
+    for port in sorted(used):
+        lat, lon = port_coords[port]
         fig.add_trace(go.Scattergeo(
             lon=[lon],
             lat=[lat],
             mode="markers+text",
-            text=[label],
+            text=[port],
             textposition="top center",
-            marker=dict(size=10, symbol=symbol, color="#f39c12" if is_shore_power else "#34495e"),
+            marker=dict(size=10, color="#34495e"),
             name="Ports",
             showlegend=False,
         ))
 
     fig.update_layout(
-        title="Commercial Fleet Deployment Corridors & Shore Power Ports",
+        title="Fleet Deployment Corridors (orange = route with shore power)",
         geo=dict(
             projection_type="natural earth",
             showcoastlines=True,
@@ -333,22 +354,14 @@ def fleet_map(solution: Solution | dict[str, Any], fleet: dict[str, Any]) -> go.
 # ===================================================================== #
 def speed_dumbbell(data: dict[str, Any]) -> go.Figure:
     """Render per-vessel speed changes between BAU and Optimized plan."""
-    plan = data.get("per_vessel_plan", [])
-    if not plan:
-        # Synthetic mock for testing
-        plan = [
-            {"vessel_id": f"V{i:03d}", "speed_kn": 14.0 - i * 0.5, "bau_speed_kn": 17.0}
-            for i in range(10)
-        ]
-
-    # Compute speed reduction
-    records = []
-    for item in plan:
-        v_id = item.get("vessel_id", "V000")
-        opt_s = float(item.get("speed_kn", 14.0))
-        bau_s = float(item.get("bau_speed_kn", opt_s + 1.5))
-        delta = opt_s - bau_s
-        records.append({"vessel": v_id, "opt": opt_s, "bau": bau_s, "reduction": abs(delta)})
+    records = [
+        {"vessel": p.get("vessel_id"), "opt": float(p["speed_kn"]), "bau": float(p["bau_speed_kn"]),
+         "reduction": abs(float(p["speed_kn"]) - float(p["bau_speed_kn"]))}
+        for p in data.get("per_vessel_plan", [])
+        if p.get("speed_kn") is not None and p.get("bau_speed_kn") is not None
+    ]
+    if not records:
+        return _empty("Speed per Vessel (BAU vs Optimized)")
 
     df_sp = pd.DataFrame(records).sort_values("reduction", ascending=True)
 
@@ -369,7 +382,7 @@ def speed_dumbbell(data: dict[str, Any]) -> go.Figure:
         x=df_sp["bau"],
         y=df_sp["vessel"],
         mode="markers",
-        name="BAU Design Speed",
+        name="BAU Speed",
         marker=dict(color="#7f8c8d", size=10),
     ))
 
@@ -397,7 +410,9 @@ def speed_dumbbell(data: dict[str, Any]) -> go.Figure:
 # ===================================================================== #
 def fuel_mix_donut(data: dict[str, Any]) -> go.Figure:
     """Render energy-share distribution donut chart."""
-    fuel_mix = data.get("fuel_mix_pct", {"HFO": 46.0, "LNG_DIESEL": 34.0, "MEOH_GREEN": 20.0})
+    fuel_mix = data.get("fuel_mix_pct") or {}
+    if not fuel_mix:
+        return _empty("Fuel Mix of Deployed Ships")
 
     labels = list(fuel_mix.keys())
     values = list(fuel_mix.values())
@@ -413,7 +428,7 @@ def fuel_mix_donut(data: dict[str, Any]) -> go.Figure:
     )])
 
     fig.update_layout(
-        title="Fleet Energy Share by Fuel Type (%)",
+        title="Deployed Ships by Fuel Type (%)",
         template="plotly_white",
     )
     return fig
@@ -427,31 +442,37 @@ def speed_fuel_curve(
     draft_m: float = 10.0,
     weather_severity: int = 1,
 ) -> go.Figure:
-    """Plot calibrated cubic propulsion fuel consumption vs speed across ship types."""
+    """Plot predictor fuel consumption vs speed per ship type.
+
+    ``predictor`` is either an object with ``predict_tpd`` or a precomputed
+    ``{ship_type: {"speed": [...], "tpd": [...]}}`` dict. Anything else gives
+    an empty-state figure.
+    """
     speeds = np.linspace(5.0, 25.0, 40)
     ship_types = ["container", "bulk", "tanker"]
     colors = {"container": "#2ecc71", "bulk": "#3498db", "tanker": "#e67e22"}
 
+    if isinstance(predictor, dict) and predictor:
+        curves = {st: (c["speed"], c["tpd"]) for st, c in predictor.items()}
+    elif hasattr(predictor, "predict_tpd"):
+        curves = {st: (speeds, [predictor.predict_tpd(s, draft_m, weather_severity, st) for s in speeds]) for st in ship_types}
+    else:
+        return _empty("Fuel Consumption vs Speed", "No predictor available")
+
     fig = go.Figure()
 
-    for st in ship_types:
-        if hasattr(predictor, "predict_tpd"):
-            fuels = [predictor.predict_tpd(s, draft_m, weather_severity, st) for s in speeds]
-        else:
-            # Admiralty physics cubic formula fallback
-            k = 0.005 if st == "container" else (0.003 if st == "bulk" else 0.004)
-            fuels = [k * (s ** 3) + 1.2 * draft_m for s in speeds]
+    for st, (x_sp, fuels) in curves.items():
 
         fig.add_trace(go.Scatter(
-            x=speeds,
-            y=fuels,
+            x=list(x_sp),
+            y=list(fuels),
             mode="lines",
             name=st.capitalize(),
             line=dict(color=colors.get(st, "#333333"), width=2.5),
         ))
 
     fig.update_layout(
-        title="Calibrated Fuel Consumption vs Cruising Speed (t/day)",
+        title="Predicted Fuel Consumption vs Speed (t/day)",
         xaxis_title="Vessel Speed (knots)",
         yaxis_title="Fuel Consumption (tons/day)",
         template="plotly_white",
@@ -463,45 +484,40 @@ def speed_fuel_curve(
 #  8. Carbon Price Sweep Sensitivity                                     #
 # ===================================================================== #
 def carbon_sweep(sweep_results: pd.DataFrame | dict[str, Any] | None) -> go.Figure:
-    """Render fuel adoption sensitivity as carbon price rises from $0 to $200/t."""
-    if sweep_results is None or (isinstance(sweep_results, pd.DataFrame) and sweep_results.empty):
-        # Default scenario simulation
-        prices = [0, 50, 85, 100, 150, 200]
-        hfo = [65, 52, 38, 25, 10, 5]
-        lng = [30, 35, 34, 30, 25, 15]
-        meoh = [5, 13, 28, 45, 65, 80]
-    elif isinstance(sweep_results, pd.DataFrame):
-        prices = sweep_results["carbon_price"].tolist()
-        hfo = sweep_results["hfo_pct"].tolist()
-        lng = sweep_results["lng_pct"].tolist()
-        meoh = sweep_results["meoh_pct"].tolist()
-    else:
-        prices = sweep_results.get("carbon_price", [0, 50, 85, 100, 150, 200])
-        hfo = sweep_results.get("hfo_pct", [65, 52, 38, 25, 10, 5])
-        lng = sweep_results.get("lng_pct", [30, 35, 34, 30, 25, 15])
-        meoh = sweep_results.get("meoh_pct", [5, 13, 28, 45, 65, 80])
+    """Render fuel adoption vs carbon price from real sweep data (empty state otherwise).
+
+    The crossover line is drawn only when sweep_crossover() finds one in the data.
+    """
+    cols = ("carbon_price", "hfo_pct", "lng_pct", "meoh_pct")
+    try:
+        prices, hfo, lng, meoh = (list(sweep_results[c]) for c in cols)  # type: ignore[index]
+    except (KeyError, TypeError):
+        return _empty("Fuel Mix vs Carbon Price", "No sweep data")
+    if not prices:
+        return _empty("Fuel Mix vs Carbon Price", "No sweep data")
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=prices, y=hfo, mode="lines+markers", name="HFO", line=dict(color="#7f8c8d", width=2)))
     fig.add_trace(go.Scatter(x=prices, y=lng, mode="lines+markers", name="LNG", line=dict(color="#3498db", width=2)))
     fig.add_trace(go.Scatter(x=prices, y=meoh, mode="lines+markers", name="Green Methanol", line=dict(color="#2ecc71", width=3)))
 
-    # Annotate Crossover
-    fig.add_vline(x=85, line_width=2, line_dash="dash", line_color="#e74c3c")
-    fig.add_annotation(
-        x=85,
-        y=50,
-        text="Crossover: $85/t-CO₂e<br>Green Methanol becomes Cost-Optimal",
-        showarrow=True,
-        arrowhead=2,
-        arrowcolor="#e74c3c",
-        bgcolor="white",
-    )
+    crossover = sweep_crossover({"carbon_price": prices, "hfo_pct": hfo, "meoh_pct": meoh})
+    if crossover is not None:
+        fig.add_vline(x=crossover, line_width=2, line_dash="dash", line_color="#e74c3c")
+        fig.add_annotation(
+            x=crossover,
+            y=max(meoh),
+            text=f"Methanol share ≥ HFO share from ${crossover:,.0f}/t",
+            showarrow=True,
+            arrowhead=2,
+            arrowcolor="#e74c3c",
+            bgcolor="white",
+        )
 
     fig.update_layout(
-        title="Fuel Mix Sensitivity vs Carbon Price ($0–$200/t-CO₂e)",
+        title=f"Fuel Mix vs Carbon Price (${min(prices):,.0f}–${max(prices):,.0f}/t CO₂e)",
         xaxis_title="Carbon Price ($/t-CO₂e)",
-        yaxis_title="Fleet Energy Share (%)",
+        yaxis_title="Share of Deployed Ships (%)",
         template="plotly_white",
     )
     return fig
@@ -552,9 +568,16 @@ def convergence_chart(history: dict[str, list[Any]]) -> go.Figure:
 def fuel_mix_bar(scenarios: list[dict[str, Any]]) -> go.Figure:
     """Render horizontal stacked bar chart comparing fuel allocations across scenarios."""
     scen_names = [s.get("name", f"Scenario {i+1}") for i, s in enumerate(scenarios)]
-    hfo_shares = [s.get("fuel_mix", {}).get("HFO", 60.0) for s in scenarios]
-    lng_shares = [s.get("fuel_mix", {}).get("LNG_DIESEL", 25.0) for s in scenarios]
-    meoh_shares = [s.get("fuel_mix", {}).get("MEOH_GREEN", 15.0) for s in scenarios]
+    if not scenarios:
+        return _empty("Fuel Mix Across Scenarios")
+    # A fuel absent from a scenario's mix has a 0% share; a missing mix is left blank.
+    def share(s: dict[str, Any], fuel: str) -> float | None:
+        mix = s.get("fuel_mix")
+        return None if mix is None else float(mix.get(fuel, 0.0))
+
+    hfo_shares = [share(s, "HFO") for s in scenarios]
+    lng_shares = [share(s, "LNG_DIESEL") for s in scenarios]
+    meoh_shares = [share(s, "MEOH_GREEN") for s in scenarios]
 
     fig = go.Figure()
     fig.add_trace(go.Bar(y=scen_names, x=hfo_shares, name="HFO", orientation="h", marker_color="#7f8c8d"))
@@ -593,7 +616,7 @@ def system_flow_diagram() -> go.Figure:
           "NSGA-II Pareto ranking", "Constraint repair engine"], "#A78BFA"),
         (0.89, "🎯 DECISION SUPPORT",
          ["Trade-off menu of plans", "Scenario & carbon sweeps",
-          "Dual PDF reports", "−16% cost · −23% CO₂"], "#FBBF24"),
+          "Dual PDF reports", "Signed deltas vs BAU"], "#FBBF24"),
     ]
     BOX_W, BOX_H, Y_MID = 0.205, 0.56, 0.47
 
@@ -648,7 +671,7 @@ def system_flow_diagram() -> go.Figure:
         text="QIEA + QPSO coupled optimization · calibrated against real EU MRV data · classical hardware",
         showarrow=False, font=dict(size=12.5, color="#7C8DB0"))
     fig.add_annotation(x=0.5, y=0.06,
-        text="⚙ 60,000 plans evaluated per run  ·  ⚡ 1.1–1.4× faster than standard methods  ·  ✅ 100% cargo delivered on time",
+        text="Every figure in the reports is computed from the run's own results and committed benchmark data",
         showarrow=False, font=dict(size=12, color="#94A3B8"))
 
     fig.update_layout(

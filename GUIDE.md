@@ -27,8 +27,9 @@ fleet optimization. No prior knowledge of the project is required.
 
 QGreenFleet answers two questions for fleet operators:
 
-1. **How much fuel will my ships burn?** — an ML model trained on operational
-   data and calibrated against 21,622 real, verified EU ship records.
+1. **How much fuel will my ships burn?** — a QPSO-tuned XGBoost model trained
+   on 21,622 EU MRV ship-years (2022–2023), combined with the cubic speed law
+   and rule-based draft/weather factors.
 2. **What is the best way to deploy my fleet?** — a quantum-inspired optimizer
    (QIEA + QPSO) that finds fleet plans minimizing fuel cost, CO₂ emissions,
    and operating cost simultaneously, while delivering all cargo on time.
@@ -90,18 +91,18 @@ datasets only if you want to retrain models from scratch.
 
 ### 4.1 EU MRV ship emissions data (for model calibration)
 1. Go to https://mrv.emsa.europa.eu/#public/emission-report
-2. Export reporting years 2022, 2023, 2024 (and 2025 if available) as Excel
+2. Export reporting years 2022 and 2023 as Excel (the shipped model was trained on these two years)
 3. Save them as:
    ```
    data/raw/mrv_2022.xlsx
    data/raw/mrv_2023.xlsx
-   data/raw/mrv_2024.xlsx
-   data/raw/mrv_2025.xlsx
    ```
+   (`prepare.py` reads every `data/raw/mrv_*.xlsx` it finds.)
 
-### 4.2 Ship performance voyage data (for model training)
+### 4.2 Ship performance voyage data (optional)
 1. Download the "Ship Performance Clustering Dataset" from Kaggle
 2. Save as: `data/raw/ship_performance.csv`
+3. Note: this dataset has no learnable fuel signal (all stage-2 models R² ≤ 0), so draft and weather effects are rule-based, not learned from it.
 
 ### 4.3 Emission factors
 Nothing to download — official IMO / FuelEU emission factors are built into
@@ -121,11 +122,11 @@ every step. Expect roughly: MRV ~57,000 → ~21,600 rows; voyages 2,736 rows.
 The fastest way to see everything working — no datasets needed:
 
 ```bash
-make demo
-# or: streamlit run ui/app.py
+make dev    # FastAPI on :8000 + React app on :5173
+# older Streamlit app: make demo  (or: streamlit run ui/app.py)
 ```
 
-Then in the browser:
+The steps below describe the Streamlit app (`make demo`). In the browser:
 1. **Data page** → tab "Generate Synthetic" → set 20 vessels, 5 routes →
    Generate → "Use this fleet"
 2. **Optimize page** → open "Load previous results" → select `baseline` →
@@ -221,8 +222,7 @@ Download results as PDF:
 | **Slow steaming** | Sailing slower to save fuel (fuel ∝ speed³) |
 | **Shore power** | Plugging into the port grid while docked instead of running engines |
 
-Typical result on the demo fleet: **−16% fuel cost, −23% CO₂**, with 100% of
-cargo delivered on time.
+For results on the demo fleet, see docs/case-study-results.md and outputs/benchmark_report.md (generated from the run outputs).
 
 ---
 
@@ -263,7 +263,8 @@ The app validates your file and lists any problems on upload.
 
 | Command | What it does |
 |---|---|
-| `make demo` | Launch the web app |
+| `make dev` | Run FastAPI (:8000) + React (:5173) |
+| `make demo` | Launch the older Streamlit app |
 | `make test` | Run the full test suite |
 | `make data` | Clean datasets + generate synthetic fleet |
 | `make train` | Train prediction models |
@@ -291,6 +292,7 @@ qgreenfleet/
 │   ├── emissions/    # IMO/FuelEU emission factors, CII rules
 │   ├── benchmark/    # GA/MOPSO/SA baselines + metrics
 │   └── case_study/   # policy scenario runner
+├── frontend/         # React app
 ├── ui/               # Streamlit app (5 pages + utils)
 ├── outputs/          # generated results, charts, reports
 ├── docs/             # full documentation + sample PDFs
@@ -347,14 +349,17 @@ math ideas (superposition-style encoding, tunneling-style jumps) for better
 search. Everything runs on a laptop.
 
 **Q: Is the data real?**
-The fuel model's absolute levels are calibrated against 21,622 real, verified
-EU MRV ship records. Operational patterns come from a voyage-level dataset,
-and emission factors are the official IMO/FuelEU values.
+The fuel model is trained on 21,622 EU MRV ship-years (2022–2023). On held-out
+ships it reaches R² 0.524 / MAPE 26.3% (ship's own EEDI), or R² 0.348 / MAPE
+34.5% when EEDI is unknown — the < 10% MAPE target is not met. Fleet vessel
+EEDI is estimated from DWT via IMO reference lines. Speed response is the
+admiralty cubic law with a part-load penalty; draft and weather are rule-based
+factors. Emission factors come from IMO/FuelEU sources.
 
 **Q: How do I know the optimizer is good?**
 It was benchmarked against a genetic algorithm, particle swarm, and simulated
-annealing under identical budgets across fleet sizes of 5–100 vessels: high-compliance
-knee solutions and 1.1–1.4× faster. See `outputs/benchmark_report.md`.
+annealing under identical budgets across fleet sizes of 5–100 vessels. For the
+results, see docs/case-study-results.md and outputs/benchmark_report.md (generated from the run outputs).
 
 **Q: Can I use this for trucks or trains instead of ships?**
 The framework generalizes (replace vessels with vehicles, fuels with

@@ -185,7 +185,7 @@ class QGreenFleetService:
             "model_name": p.model_name,
             "two_stage": bool(p.has_mrv),
             "metrics": to_jsonable(p.metrics),
-            "feature_columns": list(p.feature_columns),
+            "feature_columns": list(p.mrv_meta.get("feature_names", [])) if p.has_mrv else list(p.feature_columns),
         }
 
     # ------------------------------------------------------------------ #
@@ -641,6 +641,9 @@ class QGreenFleetService:
             bau=bau,
             scenarios=None,
             sweep_results=None,
+            predictor=self.predictor,
+            fuel_prices=config.get("fuel_prices") or dict(DEFAULT_FUEL_PRICES),
+            carbon_price=float(config.get("carbon_price", 0.0)),
         )
         return to_jsonable({
             "elapsed_seconds": round(elapsed, 2),
@@ -726,22 +729,42 @@ class QGreenFleetService:
                 meta = json.loads(mrv_meta_path.read_text(encoding="utf-8"))
                 cv = meta.get("cv_5fold", {})
                 test = meta.get("test_metrics", {})
+                fleet = meta.get("fleet_inference_metrics")
                 default = meta.get("default_xgb_metrics", {})
+                naive = meta.get("category_median_baseline_metrics")
+                if fleet:
+                    registry.append({
+                        "model": "QPSO-XGBoost + admiralty law — as used in the app",
+                        "stage": "Stage 1 — EU MRV (EEDI unknown)",
+                        "cv_rmse": "—",
+                        "test_rmse": f"{fleet.get('rmse', 0):.1f} kg/nm",
+                        "test_mape": f"{fleet.get('mape', 0):.1f}%",
+                        "selected": True,
+                    })
                 registry.append({
-                    "model": "MRV QPSO-XGBoost (real EU MRV)",
-                    "stage": "Stage 1 — macro empirical",
-                    "cv_rmse": f"{cv.get('rmse_mean', 0):.2f} ± {cv.get('rmse_std', 0):.2f} kg/nm",
-                    "test_rmse": f"{test.get('rmse', 0):.2f} kg/nm",
+                    "model": "QPSO-XGBoost, ship's own EEDI",
+                    "stage": "Stage 1 — EU MRV",
+                    "cv_rmse": f"{cv.get('rmse_mean', 0):.1f} ± {cv.get('rmse_std', 0):.1f} kg/nm",
+                    "test_rmse": f"{test.get('rmse', 0):.1f} kg/nm",
                     "test_mape": f"{test.get('mape', 0):.1f}%",
-                    "selected": True,
+                    "selected": not fleet,
                 })
                 if default:
                     registry.append({
-                        "model": "MRV XGBoost (default hyperparameters)",
-                        "stage": "Stage 1 — macro empirical",
+                        "model": "XGBoost, default hyperparameters",
+                        "stage": "Stage 1 — EU MRV",
                         "cv_rmse": "—",
-                        "test_rmse": f"{default.get('rmse', 0):.2f} kg/nm",
+                        "test_rmse": f"{default.get('rmse', 0):.1f} kg/nm",
                         "test_mape": f"{default.get('mape', 0):.1f}%",
+                        "selected": False,
+                    })
+                if naive:
+                    registry.append({
+                        "model": "Naive category median (reference)",
+                        "stage": "Stage 1 — EU MRV",
+                        "cv_rmse": "—",
+                        "test_rmse": f"{naive.get('rmse', 0):.1f} kg/nm",
+                        "test_mape": f"{naive.get('mape', 0):.1f}%",
                         "selected": False,
                     })
             except Exception:  # noqa: BLE001
@@ -752,14 +775,16 @@ class QGreenFleetService:
             try:
                 meta = json.loads(voyage_meta_path.read_text(encoding="utf-8"))
                 m = meta.get("metrics", {})
+                r2 = m.get("test_r2")
                 registry.append({
-                    "model": f"Voyage {meta.get('model_name', 'surrogate')}",
-                    "stage": "Stage 2 — micro hydrodynamic",
+                    "model": f"Voyage {meta.get('model_name', 'surrogate')} (not used: dataset has no signal"
+                    + (f", test R² {r2:.2f})" if r2 is not None else ")"),
+                    "stage": "Stage 2 — replaced by draft/weather rules",
                     "cv_rmse": f"{m.get('cv_rmse_mean', 0):.2f} ± {m.get('cv_rmse_std', 0):.2f} t/d"
                     if "cv_rmse_mean" in m else "—",
-                    "test_rmse": f"{m.get('rmse', 0):.2f} t/d" if "rmse" in m else "—",
-                    "test_mape": f"{m.get('mape', 0):.1f}%" if "mape" in m else "—",
-                    "selected": True,
+                    "test_rmse": f"{m['test_rmse']:.2f} t/d" if "test_rmse" in m else "—",
+                    "test_mape": f"{m['test_mape']:.1f}%" if "test_mape" in m else "—",
+                    "selected": False,
                 })
             except Exception:  # noqa: BLE001
                 pass

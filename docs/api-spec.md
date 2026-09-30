@@ -1,23 +1,30 @@
 # API Specification (FastAPI)
 
-Base: /api/v1 — OpenAPI at /docs
+Base: `/api` — OpenAPI at `/docs`. Source of truth: `src/api/main.py`, `src/api/schemas.py`.
+In the Docker image the same process also serves the built React app for all non-`/api` paths.
 
-## POST /predict
-Req: {vessel_type, dwt, engine_kw, speed_kn, load_pct, wind_speed?, wave_height?}
-Res: {fuel_tpd, model, confidence_interval}
+## System
+- `GET /api/health` · `GET /api/overview`
 
-## POST /optimize  → 202
-Req: {scenario: {...} | scenario_id, config_overrides?: {...}}
-Res: {job_id}
+## Fleet
+- `GET /api/fleet` · `GET /api/fleet/files` · `GET /api/fleet/bau`
+- `POST /api/fleet/load` {name} · `POST /api/fleet/generate` {vessels, routes, seed} · `POST /api/fleet/upload` · `POST /api/fleet/upload-file`
 
-## GET /optimize/{job_id}
-Res: {status: running|done|failed, progress, pareto?: [{id, fuel_cost, ghg_tco2e, opex, assignments:[{vessel,route,speed,fuel}], cii_bands}]}
+## Prediction
+- `POST /api/predict` {ship_type, speed_kn, draft_m, weather_severity (0–2), route_type, maintenance_status}
+- `POST /api/predict/curve` {ship_types, speed_min, speed_max, points, draft_m, weather_severity}
+- `GET /api/models`
 
-## GET/POST /scenarios
-Scenario: {name, fuel_prices:{HFO,LNG,MeOH,H2,NH3}, carbon_price, emission_cap?, shore_power_ports:[...], demand_multiplier}
+## Emissions
+- `GET /api/emissions/factors`
 
-## GET /report/{solution_id}?type=technical|summary&format=pdf|md
-Res: file stream (dual technical or executive summary report in PDF or Markdown format)
+## Scenarios (pre-computed case-study runs)
+- `GET /api/scenarios` · `GET /api/scenarios/{name}` · `GET /api/scenarios/{name}/report` · `GET /api/carbon-sweep`
+- Scenarios: baseline, carbon_100, cii_tightened, meoh_subsidized, green_corridor. There are no emission-cap, demand or shore-power-availability parameters.
 
-## Errors
-400 invalid config (field errors listed) · 422 infeasible scenario → {violations:[...]} · 404 unknown id
+## Optimization
+- `POST /api/optimize` → 202 {job_id}; body: fuel_prices, carbon_price, pop_size, generations, mutation_prob, lambda0, archive_max, seed
+- `GET /api/optimize/jobs` · `GET /api/optimize/{job_id}` · `DELETE /api/optimize/{job_id}`
+
+## Benchmark, reports, charts
+- `GET /api/benchmark` · `GET /api/reports` · `GET /api/reports/{key}` · `GET /api/charts` · `GET /api/charts/{name}`

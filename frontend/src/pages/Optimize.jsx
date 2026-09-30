@@ -156,7 +156,8 @@ export default function Optimize() {
             <Icon name="info" size={18} className="note__icon" />
             <span>
               <strong>Recorded run.</strong> The search below is genuine output from the QIEA+QPSO
-              engine — 50 generations at population 50, solved in{' '}
+              engine — {num(recordedRun?.result?.config?.generations)} generations at population{' '}
+              {num(recordedRun?.result?.config?.pop_size)}, solved in{' '}
               {seconds(recordedRun?.elapsed_seconds)} — captured from the FastAPI backend. Running a
               new search executes NumPy in Python, so the controls are disabled in this published
               snapshot; start the backend with <code className="mono">make api</code> to drive the

@@ -134,19 +134,10 @@ if st.session_state.scenarios:
         st.plotly_chart(fig_mix, use_container_width=True)
 
     with c_wf:
-        # Render waterfall using first scenario
-        sample_data = {
-            "kpi_deltas": {
-                "ghg_wtw": {"bau": 58140, "opt": st.session_state.scenarios[-1]["ghg_wtw"]}
-            },
-            "savings_decomposition": {
-                "slow_steaming_t": 6840.0,
-                "fuel_switch_t": 5420.0,
-                "shore_power_t": 1270.0,
-            }
-        }
-        fig_water = ghg_waterfall(sample_data, style="technical")
-        st.plotly_chart(fig_water, use_container_width=True)
+        # A lever-by-lever breakdown needs each scenario's decision matrices and
+        # the predictor; the Report page computes it for the selected plan.
+        st.info("Emission breakdown by lever (ship selection, slow steaming, fuel switching, shore power) "
+                "is computed on the Report page for the selected plan.")
 
     if st.button("Reset Scenarios"):
         st.session_state.scenarios = []

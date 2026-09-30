@@ -98,42 +98,75 @@ def test_crowding_distance_boundaries_are_infinite() -> None:
 # ===================================================================== #
 #  4. C1 Demand Repair Test                                              #
 # ===================================================================== #
+def _blank_solution(V: int, R: int, assignment: np.ndarray | None = None) -> Solution:
+    sol = Solution(
+        q_matrix=np.full((V * R + V * 5 + V * R, 2), 1.0 / np.sqrt(2.0)),
+        speeds=np.full((V, R), 15.0),
+    )
+    sol.observed = {
+        "assignment": np.zeros((V, R), dtype=bool) if assignment is None else assignment.copy(),
+        "fuel": np.zeros(V, dtype=int),
+        "shore_power": np.zeros((V, R), dtype=bool),
+    }
+    return sol
+
+
 def test_repair_satisfies_c1_demand() -> None:
-    """Greedy repair must satisfy route demand on a 2-vessel, 2-route scenario."""
+    """Greedy repair meets every route's demand with one route per vessel (C1 + C3)."""
     vessels = [
-        {"id": "V1", "capacity_teu": 5000, "vmin": 10.0, "vmax": 20.0, "fuels_allowed": ["HFO"]},
+        {"id": "V1", "capacity_teu": 6500, "vmin": 10.0, "vmax": 20.0, "fuels_allowed": ["HFO"]},
         {"id": "V2", "capacity_teu": 8000, "vmin": 10.0, "vmax": 20.0, "fuels_allowed": ["HFO"]},
     ]
     routes = [
         {"id": "R1", "demand_teu": 6000, "distance_nm": 2000, "schedule_days": 10.0},
         {"id": "R2", "demand_teu": 7000, "distance_nm": 2000, "schedule_days": 10.0},
     ]
+    sol = _blank_solution(2, 2)
 
-    # Initialize unassigned solution (all False)
-    V, R = 2, 2
-    sol = Solution(
-        q_matrix=np.full((V * R + V * 5 + V * R, 2), 1.0 / np.sqrt(2.0)),
-        speeds=np.full((V, R), 15.0),
-    )
-    sol.observed = {
-        "assignment": np.zeros((V, R), dtype=bool),
-        "fuel": np.zeros(V, dtype=int),
-        "shore_power": np.zeros((V, R), dtype=bool),
-    }
-
-    # Before repair: deficit = 6000 + 7000 = 13000
     viols_before = evaluate_violations(sol, vessels, routes)
     assert viols_before["demand_deficit"] == 13000.0
 
-    # Apply greedy repair
     repair(sol, vessels, routes)
 
-    # After repair: both routes should have assigned vessels
-    # R1: V2 (8000 >= 6000) assigned
-    # R2: V2 (8000 >= 7000) assigned
     viols_after = evaluate_violations(sol, vessels, routes)
     assert viols_after["demand_deficit"] == 0.0
+    assert viols_after["vessel_overbooked"] == 0.0
+    assert sol.observed["assignment"].sum(axis=1).max() <= 1
     assert sol.feasible is True
+
+
+def test_repair_prunes_surplus_capacity_and_writes_back_bits() -> None:
+    """Repair removes vessels a route does not need and records the result in the bits."""
+    vessels = [
+        {"id": f"V{i}", "capacity_teu": 10000, "vmin": 10.0, "vmax": 20.0,
+         "charter_per_day": 10000 + 1000 * i, "fuels_allowed": ["HFO"]}
+        for i in range(4)
+    ]
+    routes = [{"id": "R1", "demand_teu": 9000, "distance_nm": 2000, "schedule_days": 10.0}]
+    sol = _blank_solution(4, 1, assignment=np.ones((4, 1), dtype=bool))
+    sol.observed["bits"] = np.ones(4 * 1 + 4 * 5 + 4 * 1, dtype=int)
+
+    repair(sol, vessels, routes)
+
+    x = sol.observed["assignment"]
+    assert x.sum() == 1, "one 10k vessel covers 9k demand; the other three are surplus"
+    assert x[0, 0], "the cheapest vessel is the one kept"
+    assert np.array_equal(sol.observed["bits"][:4], x.ravel().astype(int))
+
+
+def test_repair_enforces_one_route_per_vessel() -> None:
+    """C3: a vessel observed on several routes keeps only one."""
+    vessels = [{"id": "V1", "capacity_teu": 10000, "vmin": 10.0, "vmax": 20.0, "fuels_allowed": ["HFO"]}]
+    routes = [
+        {"id": f"R{r}", "demand_teu": 1000, "distance_nm": 1000, "schedule_days": 10.0}
+        for r in range(3)
+    ]
+    sol = _blank_solution(1, 3, assignment=np.ones((1, 3), dtype=bool))
+    repair(sol, vessels, routes)
+    assert sol.observed["assignment"].sum() == 1
+    viols = evaluate_violations(sol, vessels, routes)
+    assert viols["vessel_overbooked"] == 0.0
+    assert viols["demand_deficit"] == 2000.0, "two routes stay short: C3 makes this honestly infeasible"
 
 
 # ===================================================================== #
@@ -368,3 +401,72 @@ def test_leader_selection_small_archive_no_nan() -> None:
     assert len(archive) >= 1
     assert len(history["generation"]) == 3
 
+
+
+# ===================================================================== #
+#  Archive elitism, fixed-box hypervolume, energy-basis fuel accounting  #
+# ===================================================================== #
+def test_archive_holds_copies_not_population_references() -> None:
+    """Mutating a population member after archiving must not rewrite the archive."""
+    sol = _blank_solution(1, 1)
+    sol.objectives = np.array([1.0, 2.0, 3.0])
+    sol.raw_objectives = sol.objectives.copy()
+    sol.feasible = True
+
+    archive = update_archive([], [sol], max_size=10)
+    sol.objectives[:] = 99.0
+    sol.raw_objectives[:] = 99.0
+    sol.speeds[:] = 0.0
+
+    assert archive[0] is not sol
+    assert np.allclose(archive[0].raw_objectives, [1.0, 2.0, 3.0])
+    assert np.allclose(archive[0].speeds, 15.0)
+
+
+def test_archive_deduplicates_identical_objectives() -> None:
+    sols = []
+    for _ in range(3):
+        s = _blank_solution(1, 1)
+        s.objectives = np.array([1.0, 2.0, 3.0])
+        s.raw_objectives = s.objectives.copy()
+        s.feasible = True
+        sols.append(s)
+    assert len(update_archive([], sols, max_size=10)) == 1
+
+
+def test_hypervolume_fixed_box_never_drops_for_dominating_archive() -> None:
+    from src.optimization.qiea import compute_hypervolume
+
+    def mk(vals: list[float]) -> Solution:
+        s = _blank_solution(1, 1)
+        s.objectives = np.array(vals, dtype=float)
+        s.raw_objectives = s.objectives.copy()
+        s.feasible = True
+        return s
+
+    ideal, ref = np.zeros(3), np.array([10.0, 10.0, 10.0])
+    one = compute_hypervolume([mk([5, 5, 5])], reference_point=ref, ideal_point=ideal)
+    two = compute_hypervolume([mk([5, 5, 5]), mk([2, 8, 5])], reference_point=ref, ideal_point=ideal)
+    better = compute_hypervolume([mk([4, 4, 4])], reference_point=ref, ideal_point=ideal)
+    assert one == pytest.approx(0.125, abs=0.01)
+    assert two >= one
+    assert better > one
+
+
+def test_methanol_is_priced_on_energy_basis() -> None:
+    """Same voyage on green methanol burns 40.2/19.9 x the HFO-equivalent tonnes."""
+    from src.optimization.objectives import compute_voyage_metrics
+
+    class Flat:
+        def predict_tpd(self, speed_kn, draft_m, weather_severity, ship_type):
+            return np.full(np.shape(speed_kn), 10.0)
+
+    vessels = [{"id": "V1", "type": "container", "dwt": 50000, "charter_per_day": 0.0}]
+    routes = [{"id": "R1", "distance_nm": 2400.0}]
+    prices = {"HFO": 1.0, "MEOH_GREEN": 1.0}
+    hfo = _blank_solution(1, 1, assignment=np.ones((1, 1), dtype=bool))
+    meoh = _blank_solution(1, 1, assignment=np.ones((1, 1), dtype=bool))
+    meoh.observed["fuel"] = np.array([2])
+    hfo_cost, _, _ = compute_voyage_metrics(hfo, vessels, routes, Flat(), prices)
+    meoh_cost, _, _ = compute_voyage_metrics(meoh, vessels, routes, Flat(), prices)
+    assert meoh_cost / hfo_cost == pytest.approx(40.2 / 19.9, rel=1e-6)

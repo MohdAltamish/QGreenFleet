@@ -9,8 +9,12 @@ fuel consumption with ML calibrated against real EU ship data, and optimizes
 fleet deployment — vessel assignment, cruising speeds, fuel selection
 (HFO/LNG/methanol/H₂/NH₃), and shore power — using quantum-inspired
 metaheuristics (QIEA + QPSO). It delivers a Pareto menu of deployment plans
-that minimize fuel cost, lifecycle CO₂e, and OPEX while meeting 100% of cargo
-demand, schedules, and IMO CII emission rules.
+that trade off fuel cost, lifecycle CO₂e and OPEX under cargo-demand, schedule,
+vessel-availability, fuel-availability and IMO CII constraints.
+
+Every number in this README is taken from files the pipeline generates
+(`outputs/`, `docs/case-study-results.md`, `models/*_meta.json`); regenerate them
+with the commands in [RUN.md](RUN.md).
 
 > 🆕 **New here? Start with [GUIDE.md](GUIDE.md)** — full installation and
 > usage walkthrough for evaluators and users.
@@ -19,16 +23,39 @@ demand, schedules, and IMO CII emission rules.
 
 ## ✨ Headline Results
 
-| | Result |
+Case study: 20-vessel, 5-route reference fleet, QIEA+QPSO at population 100 × 100
+generations, seed 42 ([full table](docs/case-study-results.md)).
+
+| | Result (recommended plan vs business-as-usual) |
 |---|---|
-| 💰 Fuel cost vs business-as-usual | **−16.2%** |
-| 🌍 Lifecycle CO₂e vs business-as-usual | **−23.3%** (≈2,940 cars off the road) |
-| ✅ Cargo demand & schedule reliability | **100%** maintained |
-| ⚡ Optimizer speed vs NSGA-II GA | **1.1–1.4× faster** (1.06–1.38× across 5–100 vessel fleets, multi-seed) |
-| 🎯 Convergence profile | **Converges to strong compromise solutions faster**; on maritime fleet problems, cost and emissions move together, so QIEA's precise convergence outperforms GA's broad spread |
-| 📊 Real-data grounding | Calibrated against **21,622 verified EU MRV ship-years** (2022–2025) |
-| 🧪 Test suite | **96 tests**, fully green, reproducible (seeded, config-driven) |
-| 💡 Key policy insight | Green methanol becomes the *cheapest* fuel above **$85/t carbon price** |
+| 💰 Fuel cost, baseline scenario | **−60.3%** ($3.08M → $1.22M) |
+| 🌍 Well-to-wake CO₂e, baseline scenario | **−80.0%** (16,852 t → 3,370 t) |
+| 🧾 OPEX, baseline / $100/t carbon price | **−37.5%** / **−53.5%** |
+| ✅ Constraints | every recommended plan in all 5 scenarios meets demand, schedules, vessel & fuel availability and CII |
+| ⚡ Runtime vs NSGA-II GA | faster on 3 of 4 instances (1.13–1.29×), **1.13× slower** on the 100-vessel instance |
+| 🎯 Solution quality (hypervolume) | QIEA best on 1 of 4 instances (M); GA best on L and XL, MOPSO on S |
+| 📊 Fuel model accuracy | R² **0.52**, MAPE **26.3%** on held-out EU MRV ships; R² 0.35 / MAPE 34.5% when EEDI is unknown |
+| 💡 Carbon-price sweep | no sustained methanol-over-HFO crossover between $0 and $200/t for this fleet |
+
+**How to read the savings.** Business-as-usual is a naive plan: first-fit vessel
+assignment in catalogue order, design speed, all HFO. Most of the saving comes from
+choosing better-suited ships and from slow steaming inside the schedule windows —
+the technical PDF breaks the CO₂e change down by lever. Slow-steaming savings use
+the admiralty law with a part-load fuel penalty, not measured voyage data.
+
+### Prediction accuracy (EU MRV THETIS, 2022–2023, ship-level 80/20 split)
+
+| Model | R² | MAPE |
+|---|---|---|
+| QPSO-XGBoost, ship's own EEDI | 0.524 | 26.3% |
+| QPSO-XGBoost, EEDI unknown | 0.348 | 34.5% |
+| XGBoost, default hyperparameters | 0.522 | 26.5% |
+| Naive category median | 0.234 | 36.9% |
+
+QPSO tuning improves on default XGBoost only marginally. The voyage-level Kaggle
+dataset shows no learnable relation between its features and fuel (every model
+R² ≤ 0), so draft and weather use documented rule-based factors instead.
+Details: [outputs/mrv_model_report.md](outputs/mrv_model_report.md).
 
 ---
 
@@ -63,14 +90,14 @@ demand, schedules, and IMO CII emission rules.
 ## 🚀 Quick Start
 
 ```bash
-git clone <REPO_URL> && cd qgreenfleet
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pytest -q                     # verify install
-make demo                     # launch the web app
+git clone https://github.com/MohdAltamish/QGreenFleet.git && cd QGreenFleet
+python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+(cd frontend && npm install)
+make test                     # verify install
+make dev                      # API on :8000 + dashboard on http://localhost:5173
 ```
 
-### ⏱ 5-Minute Interactive Demo (no datasets needed)
+### ⏱ 5-Minute Demo, legacy Streamlit app (no datasets needed)
 
 1. `make demo` → app opens in your browser
 2. **Data** page → *Generate Synthetic* → 20 vessels, 5 routes → *Use this fleet*
@@ -81,7 +108,7 @@ make demo                     # launch the web app
 6. **Report** page → download the **Executive Summary** and **Technical Report** PDFs
 
 Sample outputs are pre-committed: [`docs/samples/`](docs/samples/) (both PDFs),
-[`outputs/case_study/`](outputs/case_study/) (4 policy scenarios).
+[`outputs/case_study/`](outputs/case_study/) (5 policy scenarios).
 
 ---
 
@@ -89,9 +116,9 @@ Sample outputs are pre-committed: [`docs/samples/`](docs/samples/) (both PDFs),
 
 ```bash
 make data        # clean MRV + voyage datasets, generate synthetic fleet
-make train       # train prediction models (physics, XGBoost, QPSO-XGB, MRV)
-make optimize    # QIEA+QPSO on the 20-vessel case study (~9 min)
-make benchmark   # vs GA / MOPSO / SA across S/M/L/XL instances
+make train       # EU MRV fuel model + voyage-level candidates
+make optimize    # 5-scenario case study + carbon sweep (default budget 200 × 300)
+make benchmark   # vs GA / MOPSO / SA across S/M/L/XL instances, 5 seeds
 make all         # everything, in order
 ```
 
@@ -114,8 +141,7 @@ make demo                    # http://localhost:8501
 ### React dashboard + REST API
 
 ```bash
-make api                     # terminal 1 — FastAPI on :8000, docs at /docs
-make frontend                # terminal 2 — React dev server on :5173
+make dev                     # FastAPI on :8000 (docs at /docs) + React on :5173
 ```
 
 Exact copy-paste commands, ports and troubleshooting: **[RUN.md](RUN.md)**.
@@ -127,11 +153,12 @@ both interfaces read the same models, fleets and case-study artifacts. See
 
 | Route | View |
 |---|---|
-| `/` | Headline KPIs vs business-as-usual, fuel mix, platform status |
+| `/` | Landing page with live surrogate output |
+| `/overview` | What the system concluded, KPIs vs business-as-usual, pipeline status |
 | `/fleet` | Vessel & route catalogue; load, upload or synthesise a fleet |
 | `/predict` | Single-point inference, speed–fuel curves, model registry |
 | `/optimize` | Live QIEA+QPSO run with generation-by-generation progress |
-| `/scenarios` | The four pre-computed policy scenarios + carbon-price sweep |
+| `/scenarios` | The five pre-computed policy scenarios + carbon-price sweep |
 | `/benchmark` | QIEA vs GA / MOPSO / SA across S, M, L and XL instances |
 | `/reports` | PDF exports, the figure library, emission factor reference |
 
@@ -152,15 +179,28 @@ next generation boundary.
 
 ---
 
-## 📦 Deliverables Map (SIH #26138)
+## 📦 Delivery Table (Expected Deliverables — SIH #26138)
 
-| # | Expected Deliverable | Implementation | Evidence |
-|---|---|---|---|
-| 1 | Fuel consumption prediction model | Two-stage surrogate: MRV real-data model + voyage adjustment, QPSO-tuned XGBoost, per-type calibration | [outputs/prediction_report.md](outputs/prediction_report.md), [outputs/mrv_model_report.md](outputs/mrv_model_report.md), [outputs/calibration_check.png](outputs/calibration_check.png) |
-| 2 | Mathematical optimization formulation | Multi-objective MINLP: 4 decision variable families, 3 objectives, 6 constraint classes | [docs/mathematical-model.md](docs/mathematical-model.md), [src/optimization/](src/optimization/) |
-| 3 | Quantum-inspired optimization algorithm | QIEA (Q-bit rotation gates) + QPSO (speeds) + NSGA-II, from scratch in NumPy | [docs/algorithms.md](docs/algorithms.md), [src/optimization/qiea.py](src/optimization/qiea.py) |
-| 4 | Software platform / DSS | Two front ends over one engine: 5-page Streamlit app, plus a React dashboard on a FastAPI REST layer | [ui/](ui/), [frontend/](frontend/), [src/api/](src/api/), [docs/samples/](docs/samples/) |
-| 5 | Demonstration | 4-scenario policy case study + S/M/L/XL benchmarks vs GA/MOPSO/SA + implementation guide | [docs/case-study-results.md](docs/case-study-results.md), [outputs/benchmark_report.md](outputs/benchmark_report.md), [docs/implementation-guide.md](docs/implementation-guide.md) |
+✅ done · 🟡 partial — stated as it is, not as planned.
+
+| # | Problem-statement objective / expected item | What QGreenFleet delivers | Status | Evidence |
+|---|---|---|---|---|
+| 1 | Accurate quantum-inspired fuel prediction across vessel types and conditions | XGBoost tuned by **QPSO** (quantum-behaved PSO) on 21,622 EU MRV ship-years; admiralty-law speed response with part-load penalty; rule-based draft and sea-state factors | 🟡 accuracy is moderate (MAPE 26–35%) | [outputs/mrv_model_report.md](outputs/mrv_model_report.md) |
+| 2 | Quantum metaheuristic for vessel mix, capacities, cruising speeds | **QIEA** (Q-bit rotation gates) for assignment, fuel and shore power + **QPSO** for speeds + NSGA-II ranking, from scratch in NumPy | ✅ | [src/optimization/qiea.py](src/optimization/qiea.py), [docs/algorithms.md](docs/algorithms.md) |
+| 3 | Minimise fuel, operating cost and lifecycle GHG | Objectives: fuel cost, well-to-wake CO₂e (IMO 4th GHG Study / FuelEU factors, energy basis per fuel), OPEX incl. charter and carbon price | ✅ | [docs/mathematical-model.md](docs/mathematical-model.md) |
+| 4 | Reliability, cargo demand, emission regulations | C1 demand · C2 schedule · C3 vessel availability · C4 IMO CII · C5 fuel availability · C6 speed bounds; repair + adaptive penalty | 🟡 EEXI and a FuelEU intensity limit are not modelled; EU ETS only as a carbon price | [src/optimization/constraints.py](src/optimization/constraints.py) |
+| 5 | Alternative fuels (LNG, methanol, H₂, NH₃) and shore power | All five fuels and shore power are decision variables. H₂/NH₃ need infrastructure the reference fleet lacks, so they are tested in a hypothetical green-corridor what-if (where the optimiser still does not choose them at the assumed prices) | 🟡 | [docs/case-study-results.md](docs/case-study-results.md) |
+| 6 | Benchmark vs conventional methods: accuracy, convergence, quality, scalability | Prediction: QPSO-XGBoost vs default XGBoost vs naive baseline. Optimisation: QIEA vs GA (NSGA-II), MOPSO, SA on 5–100 vessels, equal budgets, 5 seeds, hypervolume / IGD / time | 🟡 no exact MILP baseline | [outputs/benchmark_report.md](outputs/benchmark_report.md) |
+| 7 | Mathematical modelling | Multi-objective MINLP: decision variables, 3 objectives, 6 constraint classes | ✅ | [docs/mathematical-model.md](docs/mathematical-model.md) |
+| 8 | Scenario analysis for alternative fuels | $100/t carbon price, tightened CII, methanol subsidy, green-corridor what-if, $0–200/t carbon sweep | 🟡 no demand-surge or emission-cap lever | [outputs/case_study/](outputs/case_study/) |
+| 9 | Software platform | React dashboard + FastAPI REST API (one process in production), legacy Streamlit app, PDF reports | ✅ | [frontend/](frontend/), [src/api/](src/api/), [docs/samples/](docs/samples/) |
+| 10 | Case studies | 20-vessel, 5-route fleet across 5 scenarios, generated end to end by `make optimize` | ✅ | [docs/case-study-results.md](docs/case-study-results.md) |
+
+### Known limitations
+
+- The reference fleets are synthetic, calibrated to EU MRV statistics; capacity is TEU for container ships and deadweight tonnes for bulk carriers and tankers, and route demand shares that unit.
+- Tightening CII by 11% does not change the recommended plan for this fleet (the limit does not bind).
+- Fuel shares in the carbon-price sweep fluctuate between prices at this search budget.
 
 ---
 
@@ -183,7 +223,7 @@ qgreenfleet/
 ├── frontend/           # React dashboard (Vite + React 19) on the FastAPI layer
 ├── outputs/            # generated results and charts
 ├── docs/               # full documentation + sample PDFs
-├── tests/              # 84+ pytest tests
+├── tests/              # pytest suite
 ├── Makefile
 ├── GUIDE.md            # complete user guide
 └── journey.md          # project narrative & journey
@@ -224,9 +264,9 @@ All project documentation is organized by domain and directly linked below:
 | Document | Description |
 |---|---|
 | [docs/case-study.md](docs/case-study.md) | 20-vessel commercial fleet case study configuration, corridor routes, and port infrastructure |
-| [docs/case-study-results.md](docs/case-study-results.md) | Verified case study findings across Baseline, Carbon Tax, CII, and Methanol Subsidy scenarios |
+| [docs/case-study-results.md](docs/case-study-results.md) | Case-study results generated from the run outputs (5 scenarios + carbon sweep) |
 | [docs/implementation-guide.md](docs/implementation-guide.md) | Reproduction guide for SIH evaluators covering all 5 deliverables |
-| [docs/testing.md](docs/testing.md) | Comprehensive test suite documentation: 96 unit, integration, and benchmark tests |
+| [docs/testing.md](docs/testing.md) | Test suite documentation |
 
 ### 📋 Specifications, Roadmap & Deliverables
 | Document | Description |
@@ -280,8 +320,8 @@ emissions math, prediction, optimization, benchmarking, and report generation.
 
 | Dataset | Source | Used for | Size |
 |---|---|---|---|
-| **EU MRV THETIS** | [mrv.emsa.europa.eu](https://mrv.emsa.europa.eu/#public/emission-report) | Real-world calibration of fuel predictions per vessel type | 21,622 ship-years (2022–2025) |
-| **Ship Performance Clustering Dataset** | [Kaggle](https://www.kaggle.com/datasets/jeleeladekunlefijabi/ship-performance-clustering-dataset) | Training the speed/load/weather → fuel response surface | 2,736 voyage records, 18 features |
+| **EU MRV THETIS** | [mrv.emsa.europa.eu](https://mrv.emsa.europa.eu/#public/emission-report) | Training the fuel model (fuel per nm from speed, EEDI, category) | 21,622 ship-years (2022–2023) |
+| **Ship Performance Clustering Dataset** | [Kaggle](https://www.kaggle.com/datasets/jeleeladekunlefijabi/ship-performance-clustering-dataset) | Evaluated for a voyage-level model; features show no relation to fuel (R² ≤ 0), so not used in production | 2,736 voyage records, 18 features |
 | **IMO Fourth GHG Study 2020** | [imo.org](https://www.imo.org/en/OurWork/Environment/Pages/Fourth-IMO-Greenhouse-Gas-Study-2020.aspx) | Well-to-Wake emission factors (Cf, CH₄, N₂O baselines) per fuel type | Built into `src/emissions/factors.py` |
 | **FuelEU Maritime Reg. (EU) 2023/1805** | [eur-lex.europa.eu](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32023R1805) | Green fuel WtW factors (RFNBO pathways), GHG intensity limits | Annex II — built into emissions library |
 | **Synthetic Fleet Generator** | Generated (`src/data/generate_synthetic.py`) | Scalability benchmarks (5–100 vessels), calibrated to MRV statistics | Configurable, committed to `data/synthetic/` |
@@ -293,7 +333,7 @@ emissions math, prediction, optimization, benchmarking, and report generation.
 | Standard | Source | Role in project |
 |---|---|---|
 | **IMO CII (Carbon Intensity Indicator)** | IMO MEPC.337(76) | Constraint C4: attained CII ≤ required band per vessel |
-| **IMO EEXI** | IMO MEPC.333(76) | Technical efficiency baseline for vessel classification |
+| **IMO EEDI reference lines** | IMO MEPC.231(65) | Estimating a fleet vessel's EEDI from its deadweight for the fuel model |
 | **EU ETS (Emissions Trading System)** | EU Directive 2023/959 | Carbon price scenario module ($0–$200/t sweep) |
 | **FuelEU Maritime** | Reg. (EU) 2023/1805 | WtW GHG intensity limits (−2% by 2025, −6% by 2030) |
 | **GWP100 values** | IPCC AR5 (2014) | CH₄=28, N₂O=265 — used in all CO₂e calculations |
@@ -306,7 +346,7 @@ emissions math, prediction, optimization, benchmarking, and report generation.
 |---|---|
 | Fagerholt, K. et al. — Fleet deployment and speed optimization research | Baseline formulation for maritime fleet MINLP |
 | Stopford, M. (2009). *Maritime Economics* (3rd ed.) | Admiralty formula, vessel operating cost structure |
-| MAN Energy Solutions — Engine SFOC data | SFOC = 190 g/kWh used for fuel target derivation |
+| MAN Energy Solutions — Engine SFOC data | Shape of the part-load SFOC penalty |
 | Wärtsilä — Alternative fuel technical guides | LNG methane slip values, engine cycle comparison |
 | IMO (2020). *Fourth IMO GHG Study* — Full report PDF | Complete emission factor tables, fleet composition data |
 | Pinuto (2022). *Ship Fuel & Emission Analysis* — [Kaggle notebook](https://www.kaggle.com/code/pinuto/ship-fuel-emission-analysis-and-predictions/notebook) | EDA validation of speed-fuel relationship and feature importance |
@@ -323,7 +363,7 @@ emissions math, prediction, optimization, benchmarking, and report generation.
 | UCI Propulsion Plants Dataset | Simulated gas turbine sensor data | [UCI ML Repository](https://archive.ics.uci.edu/dataset/316) |
 | ShipDataCenter | Port calls, vessel specs | [shipdatacenter.com](https://www.shipdatacenter.com) |
 
-> **Note on data availability:** Real voyage-level fuel telemetry (speed + fuel logged per hour per ship) is proprietary and held under NDA by shipping companies. Our approach — training on granular operational data and calibrating against verified EU MRV records — is the standard methodology in academic literature when proprietary data is unavailable.
+> **Note on data availability:** Real voyage-level fuel telemetry (speed + fuel logged per hour per ship) is proprietary. The public voyage dataset we tried carries no usable signal, so the model is trained on annual EU MRV reports and the speed response comes from the admiralty law — per-ship noon-report data would be the first upgrade.
 
 ---
 

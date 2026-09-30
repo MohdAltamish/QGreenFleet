@@ -16,7 +16,7 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 from sklearn.metrics import root_mean_squared_error
-from sklearn.model_selection import KFold
+from sklearn.model_selection import GroupKFold, KFold
 import xgboost as xgb
 
 
@@ -97,6 +97,8 @@ def evaluate_params(
     y: pd.Series | np.ndarray,
     folds: list[tuple[np.ndarray, np.ndarray]],
     seed: int,
+    fixed_params: dict[str, Any] | None = None,
+    log_target: bool = False,
 ) -> float:
     """Evaluate XGBoost parameter set using precomputed CV folds.
 
@@ -106,6 +108,9 @@ def evaluate_params(
         y: Target array.
         folds: List of (train_idx, val_idx) fold splits.
         seed: Random seed for XGBoost initialization.
+        fixed_params: Extra XGBoost arguments held constant during the search
+            (e.g. monotone_constraints).
+        log_target: Fit on log1p(y); RMSE is still reported on the original scale.
 
     Returns:
         Mean validation RMSE across the CV folds.
@@ -120,13 +125,16 @@ def evaluate_params(
 
         reg = xgb.XGBRegressor(
             **params,
+            **(fixed_params or {}),
             random_state=seed,
             n_jobs=-1,
             tree_method="hist",
             eval_metric="rmse",
         )
-        reg.fit(X_tr, y_tr)
+        reg.fit(X_tr, np.log1p(y_tr) if log_target else y_tr)
         preds = reg.predict(X_va)
+        if log_target:
+            preds = np.expm1(preds)
         rmse = float(root_mean_squared_error(y_val, preds))
         rmses.append(rmse)
 
@@ -144,6 +152,9 @@ def qpso_tune_xgboost(
     n_estimators_max: int = 600,
     seed: int = 42,
     verbose: bool = True,
+    groups: np.ndarray | None = None,
+    fixed_params: dict[str, Any] | None = None,
+    log_target: bool = False,
 ) -> tuple[dict[str, Any], list[float]]:
     """Run QPSO to optimize XGBoost hyperparameters over CV RMSE.
 
@@ -158,6 +169,11 @@ def qpso_tune_xgboost(
         n_estimators_max: Upper bound for n_estimators (default 600).
         seed: Deterministic random seed for RNG.
         verbose: Whether to print progress during optimization.
+        groups: Optional group labels (e.g. ship IMO). When given, folds are
+            GroupKFold so no group appears in both train and validation —
+            repeated ship-years would otherwise make CV optimistic.
+        fixed_params: Extra XGBoost arguments held constant during the search.
+        log_target: Fit on log1p(y) (see evaluate_params).
 
     Returns:
         Tuple of (best_hyperparameters_dict, convergence_history_list).
@@ -168,8 +184,11 @@ def qpso_tune_xgboost(
 
     # Pre-generate CV folds once
     n_samples = len(X)
-    kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
-    folds = list(kf.split(np.arange(n_samples)))
+    if groups is not None:
+        folds = list(GroupKFold(n_splits=n_splits).split(np.arange(n_samples), groups=groups))
+    else:
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+        folds = list(kf.split(np.arange(n_samples)))
 
     # Initialize particle positions uniformly in [0, 1]^d
     particles = rng.uniform(0.0, 1.0, size=(n_particles, d))
@@ -185,7 +204,7 @@ def qpso_tune_xgboost(
 
     for i in range(n_particles):
         params_i = space.decode(particles[i])
-        fit_i = evaluate_params(params_i, X, y, folds, seed=seed)
+        fit_i = evaluate_params(params_i, X, y, folds, seed=seed, fixed_params=fixed_params, log_target=log_target)
         pbest_fitness[i] = fit_i
         if fit_i < gbest_fitness:
             gbest_fitness = fit_i
@@ -221,7 +240,7 @@ def qpso_tune_xgboost(
 
             # Evaluate fitness
             params_i = space.decode(particles[i])
-            fit_i = evaluate_params(params_i, X, y, folds, seed=seed)
+            fit_i = evaluate_params(params_i, X, y, folds, seed=seed, fixed_params=fixed_params, log_target=log_target)
 
             if fit_i < pbest_fitness[i]:
                 pbest_fitness[i] = fit_i

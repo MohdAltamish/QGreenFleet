@@ -83,14 +83,17 @@ def compute_bau_baseline(
                 if curr_cap >= req_demand:
                     break
 
-    # If any routes still need capacity, assign remaining vessels
+    # If any routes still need capacity, top up with vessels not yet serving any
+    # route (C3: one route per vessel). A route left short is reported as an
+    # infeasible BAU rather than double-booking a ship.
     for r_idx in range(R):
         req_demand = float(routes[r_idx].get("demand_teu", 2000.0))
-        curr_cap = sum(float(vessels[v]["capacity_teu"]) for v in range(V) if assignment[v, r_idx])
+        curr_cap = sum(float(vessels[v].get("capacity_teu", 1000.0)) for v in range(V) if assignment[v, r_idx])
         if curr_cap < req_demand:
             for v_idx in range(V):
-                if not assignment[v_idx, r_idx]:
+                if not vessel_used[v_idx]:
                     assignment[v_idx, r_idx] = True
+                    vessel_used[v_idx] = True
                     curr_cap += float(vessels[v_idx].get("capacity_teu", 1000.0))
                     if curr_cap >= req_demand:
                         break
